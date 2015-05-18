@@ -1,0 +1,39 @@
+<project>
+
+    <target name="clean">
+        <delete dir="build"/>
+    </target>
+
+    <target name="compile">
+        <mkdir dir="build/classes"/>
+        <javac srcdir="src" destdir="build/classes" classpathref="classpath"/>
+    </target>
+
+    <target name="wuhwuh">
+        <mkdir dir="build/classes"/>
+        <javac srcdir="src" destdir="build/classes" classpathref="classpath"/>
+    </target>
+
+    <target name="jar">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/Walletd.jar" basedir="build/classes">
+            <manifest>
+                <attribute name="Main-Class" value="fi.bittiraha.walletd"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="run">
+        <java fork="true" classname="fi.bittiraha.walletd.Test">
+          <classpath>
+            <path refid="classpath"/>
+            <path location="build/jar/Walletd.jar"/>
+          </classpath>
+        </java>
+    </target>
+
+    <path id="classpath">
+      <fileset dir="lib" includes="**/*.jar"/>
+    </path>
+    
+</project>
