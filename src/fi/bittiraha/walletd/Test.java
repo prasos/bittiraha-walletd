@@ -27,12 +27,37 @@ import java.io.File;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Test {
-  private static WalletAccountManager kit;
-  private static Map account;
-  private static NetworkParameters params = TestNet3Params.get();
-  private static String filePrefix = "testnet";
     
-  public static class WalletRPC implements RequestHandler {
+  public static class WalletRPC extends Thread implements RequestHandler {
+    private NetworkParameters params;
+    private String filePrefix;
+    private int port;
+    private WalletAccountManager kit;
+    private Map account;
+    private JSONRPC2Handler server;
+    
+    public WalletRPC(int port, String filePrefix, NetworkParameters params) {
+      this.filePrefix = filePrefix;
+      this.params = params;
+      this.port = port;
+    }
+
+    public void run() {
+      try {
+        System.out.println(filePrefix + " wallet starting.");
+        server = new JSONRPC2Handler(port, this);
+        kit = new WalletAccountManager(params, new File("."), filePrefix);
+    
+        kit.startAsync();
+        kit.awaitRunning();
+      
+        System.out.println(filePrefix + " wallet running.");
+      }
+      catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
     public String[] handledRequests() {
       return new String[]{"getnewaddress","getaccountaddress","getbalance","sendtoaddress"};
     }
@@ -69,25 +94,22 @@ public class Test {
           response = JSONRPC2Error.METHOD_NOT_FOUND;
         }
       } catch (InsufficientMoneyException e) {
-        response = new JSONRPC2Error(-6,"Insufficient funds",e.getMessage());
+        JSONRPC2Error error = new JSONRPC2Error(-6,"Insufficient funds",e.getMessage());
+        return new JSONRPC2Response(error,req.getID());
+      } catch (AddressFormatException e) {
+        JSONRPC2Error error = new JSONRPC2Error(-5,"Invalid Bitcoin address",e.getMessage());
+        return new JSONRPC2Response(error,req.getID());
       } catch (Exception e) { 
         e.printStackTrace();
-        response = new JSONRPC2Error(-32602,"Invalid parameters",e.getMessage());
+        JSONRPC2Error error = new JSONRPC2Error(-32602,"Invalid parameters",e.getMessage());
+        return new JSONRPC2Response(error,req.getID());
       }
       return new JSONRPC2Response(response,req.getID());
     }
   }
 
   public static void main(String[] args) throws Exception {
-    JSONRPC2Handler jsonrpc = new JSONRPC2Handler(8080, new WalletRPC());
-
-    kit = new WalletAccountManager(params, new File("."), filePrefix);
-    
-    kit.startAsync();
-    kit.awaitRunning();
-    
-    account = kit.getAccountMap();
-    
-    System.out.println(filePrefix + " wallet running.");
+    (new WalletRPC(18332,"testnet",TestNet3Params.get())).start();
+    (new WalletRPC(8332,"mainnet",MainNetParams.get())).start();
   }
 }

@@ -6,7 +6,9 @@
 
     <target name="compile">
         <mkdir dir="build/classes"/>
-        <javac srcdir="src" destdir="build/classes" classpathref="classpath"/>
+        <javac srcdir="src" destdir="build/classes" classpathref="classpath">
+          <compilerarg value="-Xlint:unchecked"/>
+        </javac>
     </target>
 
     <target name="wuhwuh">
@@ -18,7 +20,7 @@
         <mkdir dir="build/jar"/>
         <jar destfile="build/jar/Walletd.jar" basedir="build/classes">
             <manifest>
-                <attribute name="Main-Class" value="fi.bittiraha.walletd"/>
+                <attribute name="Main-Class" value="fi.bittiraha.walletd.Test"/>
             </manifest>
         </jar>
     </target>
