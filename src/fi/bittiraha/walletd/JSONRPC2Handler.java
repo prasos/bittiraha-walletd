@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.net.InetAddress;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -23,7 +24,7 @@ class JSONRPC2Handler implements HttpHandler {
     private HttpServer server;
     public JSONRPC2Handler(int port, RequestHandler h) throws Exception {
       handler = h;
-      server = HttpServer.create(new InetSocketAddress(port), 0);
+      server = HttpServer.create(new InetSocketAddress(InetAddress.getByName("localhost"),port), 0);
       server.createContext("/", this);
       server.setExecutor(null); // creates a default executor
       server.start();

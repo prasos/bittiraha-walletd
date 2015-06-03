@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 
 import com.thetransactioncompany.jsonrpc2.*;
 import com.thetransactioncompany.jsonrpc2.server.*;
+import net.minidev.json.*;
 
 import org.bitcoinj.core.*;
 import org.bitcoinj.crypto.KeyCrypterException;
@@ -59,7 +60,13 @@ public class Test {
     }
 
     public String[] handledRequests() {
-      return new String[]{"getnewaddress","getaccountaddress","getbalance","sendtoaddress"};
+      return new String[]{
+        "getinfo",
+        "getnewaddress",
+        "getaccountaddress",
+        "getunconfirmedbalance",
+        "getbalance",
+        "sendtoaddress"};
     }
       
     private String sendtoaddress(Address target, Coin value) throws InsufficientMoneyException {
@@ -69,6 +76,11 @@ public class Test {
 
     private BigDecimal getbalance() {
       BigDecimal satoshis = new BigDecimal(kit.wallet().getBalance().value);
+      return new BigDecimal("0.00000001").multiply(satoshis);
+    }
+
+    private BigDecimal getunconfirmedbalance() {
+      BigDecimal satoshis = new BigDecimal(kit.wallet().getBalance(Wallet.BalanceType.ESTIMATED).value);
       return new BigDecimal("0.00000001").multiply(satoshis);
     }
 
@@ -82,7 +94,9 @@ public class Test {
         } else if (method.equals("getaccountaddress")) {
           response = kit.wallet().freshReceiveKey().toAddress(params).toString();
         } else if (method.equals("getbalance")) {
-          return new JSONRPC2Response(getbalance(),req.getID());
+          response = getbalance();
+        } else if (method.equals("getunconfirmedbalance")) {
+          response = getunconfirmedbalance();
         } else if (method.equals("sendtoaddress")) {
             response = sendtoaddress(new Address(params, (String)requestParams.get(0)),
                                     Coin.parseCoin(requestParams.get(1).toString()));
@@ -90,6 +104,24 @@ public class Test {
 
         } else if (method.equals("sendfrom")) {
 
+        } else if (method.equals("getinfo")) {
+          JSONObject info = new JSONObject();
+          StoredBlock chainHead = kit.store().getChainHead();
+//          info.put("version",null);
+//          info.put("protocolversion",null);
+//          info.put("walletversion",null);
+          info.put("balance",getbalance());
+          info.put("blocks",chainHead.getHeight());
+//          info.put("timeoffset",null);
+          info.put("connections",kit.peerGroup().numConnectedPeers());
+          info.put("difficulty",chainHead.getHeader().getDifficultyTarget());
+          info.put("testnet",params != MainNetParams.get());
+//          info.put("keypoololdest",null);
+//          info.put("keypoolsize",null);
+//          info.put("paytxfee",null);
+//          info.put("relayfee",null);
+          info.put("errors","");
+          response = info;
         } else {
           response = JSONRPC2Error.METHOD_NOT_FOUND;
         }
