@@ -20,13 +20,13 @@
         <mkdir dir="build/jar"/>
         <jar destfile="build/jar/Walletd.jar" basedir="build/classes">
             <manifest>
-                <attribute name="Main-Class" value="fi.bittiraha.walletd.Test"/>
+                <attribute name="Main-Class" value="fi.bittiraha.walletd.Main"/>
             </manifest>
         </jar>
     </target>
 
     <target name="run">
-        <java fork="true" classname="fi.bittiraha.walletd.Test">
+        <java fork="true" classname="fi.bittiraha.walletd.Main">
           <classpath>
             <path refid="classpath"/>
             <path location="build/jar/Walletd.jar"/>
