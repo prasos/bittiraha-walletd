@@ -13,7 +13,7 @@ import java.io.File;
  * this version is incomplete and only useful in searching for incoming txs.
  */
 public class WalletAccountManager extends WalletAppKit {
-  WalletExtension manager;
+  AccountManager manager;
   
   public WalletAccountManager(NetworkParameters params, File directory, String filePrefix) {
     super(params,directory,filePrefix);
@@ -39,10 +39,10 @@ public class WalletAccountManager extends WalletAppKit {
   }
 
   protected List<WalletExtension> provideWalletExtensions() throws Exception {
-    return ImmutableList.of(manager);
+    return ImmutableList.of((WalletExtension)manager);
   }
   
   public Map<String,Object> getAccountMap() {
-    return (Map<String,Object>)manager;
+    return manager;
   }
 }
