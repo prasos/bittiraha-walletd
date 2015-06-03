@@ -15,6 +15,7 @@ import com.thetransactioncompany.jsonrpc2.server.*;
 import net.minidev.json.*;
 
 import org.bitcoinj.core.*;
+import org.bitcoinj.store.*;
 import org.bitcoinj.crypto.KeyCrypterException;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.params.MainNetParams;
@@ -66,10 +67,17 @@ public class Test {
         "getaccountaddress",
         "getunconfirmedbalance",
         "getbalance",
-        "sendtoaddress"};
+        "sendtoaddress",
+        "validateaddress"};
     }
       
-    private String sendtoaddress(Address target, Coin value) throws InsufficientMoneyException {
+    private String getnewaddress() {
+      return kit.wallet().freshReceiveKey().toAddress(params).toString();
+    }
+
+    private String sendtoaddress(String address, String amount) throws InsufficientMoneyException, AddressFormatException {
+      Address target = new Address(params, address);
+      Coin value = Coin.parseCoin(amount);
       Wallet.SendResult result = kit.wallet().sendCoins(Wallet.SendRequest.to(target,value));
       return result.tx.getHash().toString();
     }
@@ -84,44 +92,63 @@ public class Test {
       return new BigDecimal("0.00000001").multiply(satoshis);
     }
 
+    private Object validateaddress(String address) {
+      JSONObject result = new JSONObject();
+      try {
+        Address validated = new Address(params,address);
+        result.put("isvalid",true);
+        result.put("address",validated.toString());
+        List<Address> addresses = kit.wallet().getIssuedReceiveAddresses();
+        result.put("ismine",addresses.contains(validated));
+      } catch (AddressFormatException e) {
+        result.put("isvalid",false);
+      } 
+      return result;
+    }
+
+    private Object getinfo() throws BlockStoreException {
+      JSONObject info = new JSONObject();
+      StoredBlock chainHead = kit.store().getChainHead();
+//      info.put("version",null);
+//      info.put("protocolversion",null);
+//      info.put("walletversion",null);
+      info.put("balance",getbalance());
+      info.put("blocks",chainHead.getHeight());
+//      info.put("timeoffset",null);
+      info.put("connections",kit.peerGroup().numConnectedPeers());
+      info.put("difficulty",chainHead.getHeader().getDifficultyTarget());
+      info.put("testnet",params != MainNetParams.get());
+//      info.put("keypoololdest",null);
+//      info.put("keypoolsize",null);
+//      info.put("paytxfee",null);
+//      info.put("relayfee",null);
+      info.put("errors","");
+      return info;
+    }
+
     public JSONRPC2Response process(JSONRPC2Request req, MessageContext ctx) {
       Object response = "dummy";
       List<Object> requestParams = req.getPositionalParams();
       String method = req.getMethod();
       try {
         if (method.equals("getnewaddress")) {
-          response = kit.wallet().freshReceiveKey().toAddress(params).toString();
+          response = getnewaddress();
         } else if (method.equals("getaccountaddress")) {
-          response = kit.wallet().freshReceiveKey().toAddress(params).toString();
+          response = getnewaddress();
         } else if (method.equals("getbalance")) {
           response = getbalance();
         } else if (method.equals("getunconfirmedbalance")) {
           response = getunconfirmedbalance();
         } else if (method.equals("sendtoaddress")) {
-            response = sendtoaddress(new Address(params, (String)requestParams.get(0)),
-                                    Coin.parseCoin(requestParams.get(1).toString()));
+            response = sendtoaddress((String)requestParams.get(0),requestParams.get(1).toString());
         } else if (method.equals("sendmany")) {
 
         } else if (method.equals("sendfrom")) {
 
+        } else if (method.equals("validateaddress")) {
+          response = validateaddress((String)requestParams.get(0));
         } else if (method.equals("getinfo")) {
-          JSONObject info = new JSONObject();
-          StoredBlock chainHead = kit.store().getChainHead();
-//          info.put("version",null);
-//          info.put("protocolversion",null);
-//          info.put("walletversion",null);
-          info.put("balance",getbalance());
-          info.put("blocks",chainHead.getHeight());
-//          info.put("timeoffset",null);
-          info.put("connections",kit.peerGroup().numConnectedPeers());
-          info.put("difficulty",chainHead.getHeader().getDifficultyTarget());
-          info.put("testnet",params != MainNetParams.get());
-//          info.put("keypoololdest",null);
-//          info.put("keypoolsize",null);
-//          info.put("paytxfee",null);
-//          info.put("relayfee",null);
-          info.put("errors","");
-          response = info;
+          response = getinfo();
         } else {
           response = JSONRPC2Error.METHOD_NOT_FOUND;
         }
