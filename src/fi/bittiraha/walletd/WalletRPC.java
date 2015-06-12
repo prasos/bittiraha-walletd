@@ -117,7 +117,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     info.put("testnet",params != MainNetParams.get());
 //      info.put("keypoololdest",null);
 //      info.put("keypoolsize",null);
-      info.put("paytxfee",BigDecimal('0.00020000'));
+//      info.put("paytxfee",BigDecimal('0.00020000'));
 //      info.put("relayfee",null);
     info.put("errors","");
     return info;
