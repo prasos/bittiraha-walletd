@@ -34,11 +34,13 @@ public class WalletRPC extends Thread implements RequestHandler {
   private WalletAccountManager kit;
   private Map account;
   private JSONRPC2Handler server;
-  
+  private Coin paytxfee;
+
   public WalletRPC(int port, String filePrefix, NetworkParameters params) {
     this.filePrefix = filePrefix;
     this.params = params;
     this.port = port;
+    this.paytxfee = Coin.parseCoin("0.00020011");
   }
 
   public void run() {
@@ -65,6 +67,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       "getunconfirmedbalance",
       "getbalance",
       "sendtoaddress",
+      "sendmany",
       "validateaddress"};
   }
     
@@ -72,10 +75,28 @@ public class WalletRPC extends Thread implements RequestHandler {
     return kit.wallet().freshReceiveKey().toAddress(params).toString();
   }
 
+
+  private String sendmany(Map<String,Object> paylist) throws InsufficientMoneyException, AddressFormatException {
+    Transaction tx = new Transaction(params);
+    Iterator<Map.Entry<String,Object>> entries = paylist.entrySet().iterator();
+    while (entries.hasNext()) {
+      Map.Entry<String,Object> entry = entries.next();
+      Address target = new Address(params, entry.getKey());
+      Coin value = Coin.parseCoin(entry.getValue().toString());
+      tx.addOutput(value,target);
+    }
+    Wallet.SendRequest req = Wallet.SendRequest.forTx(tx);
+    req.feePerKb = paytxfee;
+    Wallet.SendResult result = kit.wallet().sendCoins(req);
+    return result.tx.getHash().toString();
+  }
+
   private String sendtoaddress(String address, String amount) throws InsufficientMoneyException, AddressFormatException {
     Address target = new Address(params, address);
     Coin value = Coin.parseCoin(amount);
-    Wallet.SendResult result = kit.wallet().sendCoins(Wallet.SendRequest.to(target,value));
+    Wallet.SendRequest req = Wallet.SendRequest.to(target,value);
+    req.feePerKb = paytxfee;
+    Wallet.SendResult result = kit.wallet().sendCoins(req);
     return result.tx.getHash().toString();
   }
 
@@ -117,7 +138,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     info.put("testnet",params != MainNetParams.get());
 //      info.put("keypoololdest",null);
 //      info.put("keypoolsize",null);
-//      info.put("paytxfee",BigDecimal('0.00020000'));
+      info.put("paytxfee",paytxfee.toPlainString());
 //      info.put("relayfee",null);
     info.put("errors","");
     return info;
@@ -137,9 +158,9 @@ public class WalletRPC extends Thread implements RequestHandler {
       } else if (method.equals("getunconfirmedbalance")) {
         response = getunconfirmedbalance();
       } else if (method.equals("sendtoaddress")) {
-          response = sendtoaddress((String)requestParams.get(0),requestParams.get(1).toString());
+        response = sendtoaddress((String)requestParams.get(0),requestParams.get(1).toString());
       } else if (method.equals("sendmany")) {
-
+        response = sendmany((JSONObject)JSONValue.parse((String)requestParams.get(0)));
       } else if (method.equals("sendfrom")) {
 
       } else if (method.equals("validateaddress")) {
