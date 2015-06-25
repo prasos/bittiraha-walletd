@@ -31,7 +31,8 @@ public class WalletAccountManager extends WalletAppKit {
       return "fi.bittiraha.walletd.WalletAccountManager";
     }
     public boolean isWalletExtensionMandatory() {
-      return true;
+      // FIXME, set this to true when this module actually does something
+      return false;
     }
     public byte[] serializeWalletExtension() {
       return this.toJSONString(JSONStyle.MAX_COMPRESS).getBytes();
