@@ -149,26 +149,32 @@ public class WalletRPC extends Thread implements RequestHandler {
     List<Object> requestParams = req.getPositionalParams();
     String method = req.getMethod();
     try {
-      if (method.equals("getnewaddress")) {
-        response = getnewaddress();
-      } else if (method.equals("getaccountaddress")) {
-        response = getnewaddress();
-      } else if (method.equals("getbalance")) {
-        response = getbalance();
-      } else if (method.equals("getunconfirmedbalance")) {
-        response = getunconfirmedbalance();
-      } else if (method.equals("sendtoaddress")) {
-        response = sendtoaddress((String)requestParams.get(0),requestParams.get(1).toString());
-      } else if (method.equals("sendmany")) {
-        response = sendmany((JSONObject)JSONValue.parse((String)requestParams.get(0)));
-      } else if (method.equals("sendfrom")) {
-
-      } else if (method.equals("validateaddress")) {
-        response = validateaddress((String)requestParams.get(0));
-      } else if (method.equals("getinfo")) {
-        response = getinfo();
-      } else {
-        response = JSONRPC2Error.METHOD_NOT_FOUND;
+      switch (method) {
+        case "getnewaddress":
+        case "getaccountaddress":
+          response = getnewaddress();
+          break;
+        case "getbalance":
+          response = getbalance();
+          break;
+        case "getunconfirmedbalance":
+          response = getunconfirmedbalance();
+          break;
+        case "sendtoaddress":
+          response = sendtoaddress((String)requestParams.get(0),requestParams.get(1).toString());
+          break;
+        case "sendmany":
+          response = sendmany((JSONObject)JSONValue.parse((String)requestParams.get(0)));
+          break;
+        case "validateaddress":
+          response = validateaddress((String)requestParams.get(0));
+          break;
+        case "getinfo":
+          response = getinfo();
+          break;
+        default:
+          response = JSONRPC2Error.METHOD_NOT_FOUND;
+          break;
       }
     } catch (InsufficientMoneyException e) {
       JSONRPC2Error error = new JSONRPC2Error(-6,"Insufficient funds",e.getMessage());
