@@ -46,11 +46,11 @@ public class WalletRPC extends Thread implements RequestHandler {
   public void run() {
     try {
       System.out.println(filePrefix + " wallet starting.");
-      server = new JSONRPC2Handler(port, this);
       kit = new WalletAccountManager(params, new File("."), filePrefix);
   
       kit.startAsync();
       kit.awaitRunning();
+      server = new JSONRPC2Handler(port, this);
     
       System.out.println(filePrefix + " wallet running.");
     }
