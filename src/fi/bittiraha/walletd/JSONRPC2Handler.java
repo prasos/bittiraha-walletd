@@ -19,6 +19,9 @@ import org.apache.commons.io.Charsets;
 import java.text.*;
 import java.util.*;
 
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executors;
+
 class JSONRPC2Handler implements HttpHandler {
     private RequestHandler handler;
     private HttpServer server;
@@ -26,7 +29,7 @@ class JSONRPC2Handler implements HttpHandler {
       handler = h;
       server = HttpServer.create(new InetSocketAddress(InetAddress.getByName("localhost"),port), 0);
       server.createContext("/", this);
-      server.setExecutor(null); // creates a default executor
+      server.setExecutor(Executors.newCachedThreadPool()); // creates a default executor
       server.start();
     }
     public void handle(HttpExchange t) throws IOException {
