@@ -161,34 +161,36 @@ public class WalletRPC extends Thread implements RequestHandler {
           @Override
           public void onConfidenceChanged(TransactionConfidence confidence,
                                           TransactionConfidence.Listener.ChangeReason reason) {
-              if (currentSend == null) return;
-              if (confidence.getTransactionHash().equals(currentSend.getHash()) &&
-                  confidence.numBroadcastPeers() >= 1)
-              {
-                  log.info("Done with " + confidence.getTransactionHash().toString());
-                  sendlock.lock();
-                  try {
-                    currentSend = null;
-                    if (queuedPaylist.size() > 0) {
-                      prepareTx(null);
-                      reallySend();
-                    }
-                  } catch (Exception e) {
-                    log.info("Got exception:" + e.toString());
-                    nextSend.setException(e);
-                    nextSend = SettableFuture.create();
-                    queuedPaylist = new ArrayList<Pair<Address,Coin>>();
-                    queuedTx = null;
-                  } finally {
-                    sendlock.unlock();
+              if (confidence.numBroadcastPeers() >= 1 ||
+                  confidence.getConfidenceType().equals(TransactionConfidence.ConfidenceType.BUILDING)) {
+                  confidence.removeEventListener(this);
+                  if (currentSend == null) return;
+                  if (confidence.getTransactionHash().equals(currentSend.getHash())) {
+                      log.info("Done with " + confidence.getTransactionHash().toString());
+                      sendlock.lock();
+                      try {
+                        currentSend = null;
+                        if (queuedPaylist.size() > 0) {
+                          prepareTx(null);
+                          reallySend();
+                        }
+                      } catch (Exception e) {
+                        log.info("Got exception:" + e.toString());
+                        nextSend.setException(e);
+                        nextSend = SettableFuture.create();
+                        queuedPaylist = new ArrayList<Pair<Address,Coin>>();
+                        queuedTx = null;
+                      } finally {
+                        sendlock.unlock();
+                      }
+                  } else {
+                      log.info("Ignored " + confidence.getTransactionHash().toString() +
+                               " currentSend: " + currentSend.getHash().toString() +
+                               " comparison: " + (confidence.getTransactionHash() == currentSend.getHash()) +
+                               " " + confidence.numBroadcastPeers() +
+                               " " + reason.toString()
+                      );
                   }
-              } else {
-                  log.info("Ignored " + confidence.getTransactionHash().toString() +
-                           " currentSend: " + currentSend.getHash().toString() +
-                           " comparison: " + (confidence.getTransactionHash() == currentSend.getHash()) +
-                           " " + confidence.numBroadcastPeers() +
-                           " " + reason.toString()
-                  );
               }
           }
   
@@ -198,7 +200,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   throws InsufficientMoneyException, AddressFormatException,
          InterruptedException,ExecutionException {
     List<Pair<Address,Coin>> paylist = parsePaylist(_paylist);
-    log.info("Received sendmany request");
+    log.info("Received send request");
     sendlock.lock();
     try {
       prepareTx(paylist);
@@ -212,7 +214,6 @@ public class WalletRPC extends Thread implements RequestHandler {
       Transaction next = future.get(25L,TimeUnit.SECONDS);
       return next.getHash().toString();
     } catch (TimeoutException e) {
-      // FIXME: This might do unexpected things sometimes. Improve timeout handling.
       sendlock.lock();
       try {
         nextSend.setException(e);
