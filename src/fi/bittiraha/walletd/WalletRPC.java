@@ -89,7 +89,9 @@ public class WalletRPC extends Thread implements RequestHandler {
       "getbalance",
       "sendtoaddress",
       "sendmany",
-      "validateaddress"};
+      "validateaddress",
+      "settxfee"
+      };
   }
     
   private String getnewaddress() {
@@ -276,6 +278,11 @@ public class WalletRPC extends Thread implements RequestHandler {
     return info;
   }
 
+  private boolean settxfee(String fee) {
+    paytxfee = Coin.parseCoin(fee);
+    return true;
+  }
+
   public JSONRPC2Response process(JSONRPC2Request req, MessageContext ctx) {
     Object response = "dummy";
     List<Object> rp = req.getPositionalParams();
@@ -305,6 +312,9 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "getinfo":
           response = getinfo();
+          break;
+        case "settxfee":
+          response = settxfee(rp.get(0).toString());
           break;
         default:
           response = JSONRPC2Error.METHOD_NOT_FOUND;
