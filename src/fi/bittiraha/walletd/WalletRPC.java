@@ -39,6 +39,7 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import javax.xml.bind.DatatypeConverter;
 
 public class WalletRPC extends Thread implements RequestHandler {
   private static final Logger log = LoggerFactory.getLogger(WalletRPC.class);
@@ -105,9 +106,21 @@ public class WalletRPC extends Thread implements RequestHandler {
     Iterator<Map.Entry<String,Object>> entries = paylist.entrySet().iterator();
     while (entries.hasNext()) {
       Map.Entry<String,Object> entry = entries.next();
-      Address target = new Address(params, entry.getKey());
       Coin value = Coin.parseCoin(entry.getValue().toString());
-      result.add(new TransactionOutput(params,null,value,target));
+      String key = entry.getKey();
+      if (key.toLowerCase().startsWith("0x")) {
+	  // Parsing as hex encoded output script
+	  try {
+	      byte[] script = DatatypeConverter.parseHexBinary(key.substring(2));
+	      result.add(new TransactionOutput(params,null,value,script));
+	  } catch (IllegalArgumentException e) {
+	      throw new AddressFormatException("Parsing target as script but is not hexadecimal");
+	  }
+      } else {
+	  // Parsing as an ordinary bitcoin address
+	  Address target = new Address(params, key);
+	  result.add(new TransactionOutput(params,null,value,target));
+      }
     }
     return result;
   }
