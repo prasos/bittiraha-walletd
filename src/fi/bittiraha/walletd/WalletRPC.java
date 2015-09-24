@@ -89,6 +89,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       "getbalance",
       "sendtoaddress",
       "sendmany",
+      "sendfrom",
       "validateaddress",
       "settxfee"
       };
@@ -287,6 +288,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     Object response = "dummy";
     List<Object> rp = req.getPositionalParams();
     String method = req.getMethod();
+    JSONObject paylist = new JSONObject();
     try {
       switch (method) {
         case "getnewaddress":
@@ -300,8 +302,11 @@ public class WalletRPC extends Thread implements RequestHandler {
           response = getunconfirmedbalance();
           break;
         case "sendtoaddress":
-          JSONObject paylist = new JSONObject();
           paylist.put((String)rp.get(0),rp.get(1));
+          response = sendmany(paylist);
+          break;
+        case "sendfrom":
+          paylist.put((String)rp.get(1),rp.get(2));
           response = sendmany(paylist);
           break;
         case "sendmany":
