@@ -9,6 +9,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.text.*;
 import java.util.*;
+import java.io.*;
 import java.math.BigDecimal;
 
 import com.thetransactioncompany.jsonrpc2.*;
@@ -32,7 +33,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.*;
 
 import com.google.common.base.Joiner;
-import java.io.File;
 import static com.google.common.base.Preconditions.*;
 
 import java.util.logging.Level;
@@ -55,25 +55,42 @@ public class WalletRPC extends Thread implements RequestHandler {
   private List<TransactionOutput> queuedPaylist = new ArrayList<TransactionOutput>();
   private Transaction queuedTx = null;
   private final ReentrantLock sendlock = Threading.lock("sendqueue");
+
+  private static Properties defaults = new Properties();
+  private Properties config = new Properties(defaults);
   
-  public WalletRPC(int port, String filePrefix, NetworkParameters params) {
+  static {
+    defaults.setProperty("start","1");
+  }
+
+  public WalletRPC(int port, String filePrefix, NetworkParameters params) throws IOException {
     BriefLogFormatter.init();
     this.filePrefix = filePrefix;
     this.params = params;
     this.port = port;
     this.paytxfee = Coin.parseCoin("0.00020011");
+    try {
+      config.load(new FileReader(filePrefix+".conf"));
+    }
+    catch (FileNotFoundException e) {
+      log.info(filePrefix + ": config file "+filePrefix+".conf not found. Using defaults.");
+    }
   }
 
   public void run() {
+    if (!config.getProperty("start").equals("1")) {
+      log.info(filePrefix + ": disabled (start!=1). Not starting.");
+      return;
+    }
     try {
-      log.info(filePrefix + " wallet starting.");
+      log.info(filePrefix + ": wallet starting.");
       kit = new WalletAccountManager(params, new File("."), filePrefix);
   
       kit.startAsync();
       kit.awaitRunning();
       server = new JSONRPC2Handler(port, this);
     
-      log.info(filePrefix + " wallet running.");
+      log.info(filePrefix + ": wallet running.");
     }
     catch (Exception e) {
       e.printStackTrace();
