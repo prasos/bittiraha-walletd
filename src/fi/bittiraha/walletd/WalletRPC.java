@@ -3,6 +3,7 @@ package fi.bittiraha.walletd;
 import fi.bittiraha.walletd.JSONRPC2Handler;
 import fi.bittiraha.walletd.WalletAccountManager;
 import fi.bittiraha.walletd.BalanceCoinSelector;
+import fi.bittiraha.walletd.ConfirmedCoinSelector;
 
 import java.net.InetSocketAddress;
 import com.sun.net.httpserver.HttpServer;
@@ -18,6 +19,7 @@ import net.minidev.json.*;
 
 import org.bitcoinj.core.*;
 import org.bitcoinj.store.*;
+import org.bitcoinj.wallet.*;
 import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.crypto.KeyCrypterException;
 import org.bitcoinj.utils.BriefLogFormatter;
@@ -50,6 +52,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   private Map account;
   private JSONRPC2Handler server;
   private Coin paytxfee;
+  private CoinSelector sendSelector = new BalanceCoinSelector();
   private Transaction currentSend = null;
   private SettableFuture<Transaction> nextSend = SettableFuture.create();
   private List<TransactionOutput> queuedPaylist = new ArrayList<TransactionOutput>();
@@ -61,6 +64,8 @@ public class WalletRPC extends Thread implements RequestHandler {
   
   static {
     defaults.setProperty("start","1");
+    defaults.setProperty("sendUnconfirmedChange","1");
+    //defaults.setProperty("trustedPeer","1.2.3.4");
   }
 
   public WalletRPC(int port, String filePrefix, NetworkParameters params) throws IOException {
@@ -71,6 +76,10 @@ public class WalletRPC extends Thread implements RequestHandler {
     this.paytxfee = Coin.parseCoin("0.00020011");
     try {
       config.load(new FileReader(filePrefix+".conf"));
+      if (!config.getProperty("sendUnconfirmedChange").equals("1")) {
+        log.info(filePrefix + ": Will not send unconfirmed coins under any circumstances.");
+        sendSelector = new ConfirmedCoinSelector();
+      }
     }
     catch (FileNotFoundException e) {
       log.info(filePrefix + ": config file "+filePrefix+".conf not found. Using defaults.");
@@ -167,7 +176,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     Transaction provisionalTx = newTransaction(provisionalQueue);
     Wallet.SendRequest req = Wallet.SendRequest.forTx(provisionalTx);
     req.feePerKb = paytxfee;
-    req.coinSelector = new BalanceCoinSelector();
+    req.coinSelector = sendSelector;
     // This ensures we have enough balance. Throws InsufficientMoneyException otherwise.
     // Does not actually mark anything as spent yet.
     kit.wallet().completeTx(req); 
@@ -260,7 +269,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   }
 
   private Coin getcoinbalance() {
-    return kit.wallet().getBalance(new BalanceCoinSelector()).subtract(sumCoins(queuedPaylist));
+    return kit.wallet().getBalance(sendSelector).subtract(sumCoins(queuedPaylist));
   }
 
   private BigDecimal getbalance() {
