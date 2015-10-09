@@ -4,6 +4,7 @@ import fi.bittiraha.walletd.JSONRPC2Handler;
 import fi.bittiraha.walletd.WalletAccountManager;
 import fi.bittiraha.walletd.BalanceCoinSelector;
 import fi.bittiraha.walletd.ConfirmedCoinSelector;
+import fi.bittiraha.util.ConfigFile;
 
 import java.net.InetSocketAddress;
 import com.sun.net.httpserver.HttpServer;
@@ -59,15 +60,8 @@ public class WalletRPC extends Thread implements RequestHandler {
   private Transaction queuedTx = null;
   private final ReentrantLock sendlock = Threading.lock("sendqueue");
 
-  private static Properties defaults = new Properties();
-  private Properties config = new Properties(defaults);
+  private ConfigFile config = new ConfigFile();
   
-  static {
-    defaults.setProperty("start","1");
-    defaults.setProperty("sendUnconfirmedChange","1");
-    //defaults.setProperty("trustedPeer","1.2.3.4");
-  }
-
   public WalletRPC(int port, String filePrefix, NetworkParameters params) throws IOException {
     BriefLogFormatter.init();
     this.filePrefix = filePrefix;
@@ -76,21 +70,25 @@ public class WalletRPC extends Thread implements RequestHandler {
     this.paytxfee = Coin.parseCoin("0.00020011");
     try {
       config.load(new FileReader(filePrefix+".conf"));
-      if (!config.getProperty("sendUnconfirmedChange").equals("1")) {
-        log.info(filePrefix + ": Will not send unconfirmed coins under any circumstances.");
-        sendSelector = new ConfirmedCoinSelector();
-      }
     }
     catch (FileNotFoundException e) {
       log.info(filePrefix + ": config file "+filePrefix+".conf not found. Using defaults.");
     }
+    config.defaultBoolean("start",true);
+    config.defaultBoolean("sendUnconfirmedChange",true);
+    //defaults.setProperty("trustedPeer","1.2.3.4");
   }
 
   public void run() {
-    if (!config.getProperty("start").equals("1")) {
+    if (!config.getBoolean("start")) {
       log.info(filePrefix + ": disabled (start!=1). Not starting.");
       return;
     }
+    if (!config.getBoolean("sendUnconfirmedChange")) {
+      log.info(filePrefix + ": Will not send unconfirmed coins under any circumstances.");
+      sendSelector = new ConfirmedCoinSelector();
+    }
+
     try {
       log.info(filePrefix + ": wallet starting.");
       kit = new WalletAccountManager(params, new File("."), filePrefix);
