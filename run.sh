@@ -1,2 +1,2 @@
 #!/bin/sh
-ant compile && ant jar && java -cp build/jar/Walletd.jar:lib/* fi.bittiraha.walletd.Main
+java -cp build/jar/Walletd.jar:lib/* fi.bittiraha.walletd.Main 2>&1 | ts | tee debug.log
