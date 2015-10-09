@@ -31,7 +31,6 @@ import org.bitcoinj.utils.Threading;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.*;
 
-import org.apache.commons.lang3.tuple.*;
 import com.google.common.base.Joiner;
 import java.io.File;
 import static com.google.common.base.Preconditions.*;
@@ -40,6 +39,7 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import javax.xml.bind.DatatypeConverter;
 
 public class WalletRPC extends Thread implements RequestHandler {
   private static final Logger log = LoggerFactory.getLogger(WalletRPC.class);
@@ -52,7 +52,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   private Coin paytxfee;
   private Transaction currentSend = null;
   private SettableFuture<Transaction> nextSend = SettableFuture.create();
-  private List<Pair<Address,Coin>> queuedPaylist = new ArrayList<Pair<Address,Coin>>();
+  private List<TransactionOutput> queuedPaylist = new ArrayList<TransactionOutput>();
   private Transaction queuedTx = null;
   private final ReentrantLock sendlock = Threading.lock("sendqueue");
   
@@ -102,38 +102,50 @@ public class WalletRPC extends Thread implements RequestHandler {
   }
 
   // Dang this function looks UGLY and overly verbose. It really should be doable in a couple of lines.
-  private List<Pair<Address,Coin>> parsePaylist(Map<String,Object> paylist) throws AddressFormatException {
-    List<Pair<Address,Coin>> result = new ArrayList<Pair<Address,Coin>>(paylist.size());
+  private List<TransactionOutput> parsePaylist(Map<String,Object> paylist) throws AddressFormatException {
+    List<TransactionOutput> result = new ArrayList<TransactionOutput>(paylist.size());
     Iterator<Map.Entry<String,Object>> entries = paylist.entrySet().iterator();
     while (entries.hasNext()) {
       Map.Entry<String,Object> entry = entries.next();
-      Address target = new Address(params, entry.getKey());
       Coin value = Coin.parseCoin(entry.getValue().toString());
-      result.add(new ImmutablePair<Address,Coin>(target,value));
+      String key = entry.getKey();
+      if (key.toLowerCase().startsWith("0x")) {
+	  // Parsing as hex encoded output script
+	  try {
+	      byte[] script = DatatypeConverter.parseHexBinary(key.substring(2));
+	      result.add(new TransactionOutput(params,null,value,script));
+	  } catch (IllegalArgumentException e) {
+	      throw new AddressFormatException("Parsing target as script but is not hexadecimal");
+	  }
+      } else {
+	  // Parsing as an ordinary bitcoin address
+	  Address target = new Address(params, key);
+	  result.add(new TransactionOutput(params,null,value,target));
+      }
     }
     return result;
   }
 
-  private Transaction newTransaction(List<Pair<Address,Coin>> paylist) {
+  private Transaction newTransaction(List<TransactionOutput> paylist) {
     Transaction tx = new Transaction(params);
-    for (Pair<Address,Coin> pair : paylist) {
-      tx.addOutput(pair.getRight(), pair.getLeft());
+    for (TransactionOutput out : paylist) {
+      tx.addOutput(out);
     }
     return tx;
   }
   
-  private Coin sumCoins(List<Pair<Address,Coin>> paylist) {
+  private Coin sumCoins(List<TransactionOutput> paylist) {
     Coin sum = Coin.ZERO;
-    for (Pair<Address,Coin> pair : paylist) {
-      sum = sum.add(pair.getRight());
+    for (TransactionOutput out : paylist) {
+      sum = sum.add(out.getValue());
     }
     return sum;
   }
   
-  private void prepareTx(List<Pair<Address,Coin>> paylist) throws InsufficientMoneyException {
+  private void prepareTx(List<TransactionOutput> paylist) throws InsufficientMoneyException {
     checkState(sendlock.isHeldByCurrentThread());
     log.info("preparing transaction");
-    List<Pair<Address,Coin>> provisionalQueue = new ArrayList<Pair<Address,Coin>>(queuedPaylist);
+    List<TransactionOutput> provisionalQueue = new ArrayList<TransactionOutput>(queuedPaylist);
     if (paylist != null) provisionalQueue.addAll(paylist);
     Transaction provisionalTx = newTransaction(provisionalQueue);
     Wallet.SendRequest req = Wallet.SendRequest.forTx(provisionalTx);
@@ -155,7 +167,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       nextSend.set(queuedTx);
       currentSend = queuedTx;
       queuedTx = null;
-      queuedPaylist = new ArrayList<Pair<Address,Coin>>();
+      queuedPaylist = new ArrayList<TransactionOutput>();
       nextSend = SettableFuture.create();
       return currentSend;
   }
@@ -181,7 +193,7 @@ public class WalletRPC extends Thread implements RequestHandler {
                         log.info("Got exception:" + e.toString());
                         nextSend.setException(e);
                         nextSend = SettableFuture.create();
-                        queuedPaylist = new ArrayList<Pair<Address,Coin>>();
+                        queuedPaylist = new ArrayList<TransactionOutput>();
                         queuedTx = null;
                       } finally {
                         sendlock.unlock();
@@ -202,7 +214,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   private String sendmany(Map<String,Object> _paylist)
   throws InsufficientMoneyException, AddressFormatException,
          InterruptedException,ExecutionException {
-    List<Pair<Address,Coin>> paylist = parsePaylist(_paylist);
+    List<TransactionOutput> paylist = parsePaylist(_paylist);
     log.info("Received send request");
     sendlock.lock();
     try {
@@ -221,7 +233,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       try {
         nextSend.setException(e);
         nextSend = SettableFuture.create();
-        queuedPaylist = new ArrayList<Pair<Address,Coin>>();
+        queuedPaylist = new ArrayList<TransactionOutput>();
         queuedTx = null;
         throw new ExecutionException(e);
       } finally {
