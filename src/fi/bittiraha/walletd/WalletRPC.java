@@ -61,7 +61,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   private final ReentrantLock sendlock = Threading.lock("sendqueue");
 
   private ConfigFile config = new ConfigFile();
-  
+
   public WalletRPC(int port, String filePrefix, NetworkParameters params) throws IOException {
     BriefLogFormatter.init();
     this.filePrefix = filePrefix;
@@ -115,8 +115,9 @@ public class WalletRPC extends Thread implements RequestHandler {
       "sendmany",
       "sendfrom",
       "validateaddress",
-      "settxfee"
-      };
+      "settxfee",
+      "listunspent"
+    };
   }
     
   private String getnewaddress() {
@@ -270,15 +271,18 @@ public class WalletRPC extends Thread implements RequestHandler {
     return kit.wallet().getBalance(sendSelector).subtract(sumCoins(queuedPaylist));
   }
 
-  private BigDecimal getbalance() {
-    BigDecimal satoshis = new BigDecimal(getcoinbalance().value);
+  public static BigDecimal coin2BigDecimal(Coin input) {
+    BigDecimal satoshis = new BigDecimal(input.value);
     return new BigDecimal("0.00000001").multiply(satoshis);
+  }
+
+  private BigDecimal getbalance() {
+    return coin2BigDecimal(getcoinbalance());
   }
 
   private BigDecimal getunconfirmedbalance() {
     Coin balance = kit.wallet().getBalance(Wallet.BalanceType.ESTIMATED).subtract(sumCoins(queuedPaylist));
-    BigDecimal satoshis = new BigDecimal(balance.value);
-    return new BigDecimal("0.00000001").multiply(satoshis);
+    return coin2BigDecimal(balance);
   }
 
   private Object validateaddress(String address) {
@@ -313,6 +317,38 @@ public class WalletRPC extends Thread implements RequestHandler {
 //      info.put("relayfee",null);
     info.put("errors","");
     return info;
+  }
+
+  public static String txoutScript2String(NetworkParameters params, TransactionOutput out) {
+    Address addr;
+    addr = out.getAddressFromP2PKHScript(params);
+    if (addr != null) return addr.toString();
+    addr = out.getAddressFromP2SH(params);
+    if (addr != null) return addr.toString();
+    return "UNKNOWN";
+  }
+
+  private Object listunspent(long minconf, long maxconf, JSONArray filter) {
+    List<String> addresses = new ArrayList<String>(filter.size());
+    for (Object item : filter) addresses.add((String) item);
+    JSONArray reply = new JSONArray();
+    List<TransactionOutput> unspent = kit.wallet().calculateAllSpendCandidates(true, true);
+    for (TransactionOutput out : unspent) {
+      int depth = out.getParentTransaction().getConfidence().getDepthInBlocks();
+      String addr = txoutScript2String(params,out);
+      if (minconf <= depth && depth <= maxconf && (addresses.size() == 0 || addresses.contains(addr))) {
+        JSONObject coin = new JSONObject();
+        TransactionOutPoint outpoint = out.getOutPointFor();
+        coin.put("txid", outpoint.getHash().toString());
+        coin.put("vout",outpoint.getIndex());
+        coin.put("address",addr);
+        coin.put("scriptPubKey", DatatypeConverter.printHexBinary(out.getScriptPubKey().getProgram()));
+        coin.put("amount", coin2BigDecimal(out.getValue()));
+        coin.put("confirmations",depth);
+        reply.add(coin);
+      }
+    }
+    return reply;
   }
 
   private boolean settxfee(String fee) {
@@ -356,6 +392,24 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "settxfee":
           response = settxfee(rp.get(0).toString());
+          break;
+        case "listunspent":
+          long minconf = 1;
+          long maxconf = 9999999;
+          JSONArray filter = new JSONArray();
+          switch (rp.size()) {
+            case 3:
+              filter = (JSONArray)JSONValue.parse((String)rp.get(2));
+            case 2:
+              maxconf = (long)rp.get(1);
+            case 1:
+              minconf = (long)rp.get(0);
+            case 0:
+              break;
+            default:
+              throw new Exception("Invalid number of parameters");
+          }
+          response = listunspent(minconf,maxconf,filter);
           break;
         default:
           response = JSONRPC2Error.METHOD_NOT_FOUND;
