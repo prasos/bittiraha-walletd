@@ -13,6 +13,8 @@ import com.sun.net.httpserver.HttpServer;
 import com.thetransactioncompany.jsonrpc2.*;
 import com.thetransactioncompany.jsonrpc2.server.*;
 
+import net.minidev.json.JSONObject;
+import net.minidev.json.JSONValue;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.Charsets;
 
@@ -32,6 +34,16 @@ class JSONRPC2Handler implements HttpHandler {
       server.setExecutor(Executors.newCachedThreadPool()); // creates a default executor
       server.start();
     }
+
+    private static String ensureRequestHasID(String req) {
+        JSONObject parsed = (JSONObject)JSONValue.parse(req);
+        if (parsed.containsKey("id")) return req;
+        else {
+            parsed.put("id","");
+            return parsed.toJSONString();
+        }
+    }
+
     public void handle(HttpExchange t) throws IOException {
       String response = "Internal Server Error";
       try {
@@ -41,7 +53,7 @@ class JSONRPC2Handler implements HttpHandler {
         Dispatcher dispatcher = new Dispatcher();
         dispatcher.register(handler);
             
-        JSONRPC2Request jsonreq = JSONRPC2Request.parse(req,false,true);
+        JSONRPC2Request jsonreq = JSONRPC2Request.parse(ensureRequestHasID(req),false,true);
         JSONRPC2Response resp = dispatcher.process(jsonreq, null);
             
         response = resp.toString();
