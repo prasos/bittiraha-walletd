@@ -1,5 +1,6 @@
 package fi.bittiraha.util;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 /**
@@ -39,7 +40,43 @@ public class ConfigFile extends Properties {
 
     }
 
-    public void defaultString(String k, String def) {
+	public void defaultInteger(String k,int def) {
+		try {
+			getString(k);
+		} catch (ConfigFieldNullException _) {
+			super.setProperty(k,Integer.toString(def));
+		}
+	}
+
+	public int getInteger(String k) {
+		String v = super.getProperty(k);
+		if (v == null) throw new ConfigFieldNullException(k);
+		try {
+			return Integer.parseInt(v);
+		} catch (NumberFormatException _) {
+			throw new ConfigFieldException(k,"Invalid format for Integer");
+		}
+	}
+
+	public void defaultBigDecimal(String k,BigDecimal def) {
+		try {
+			getString(k);
+		} catch (ConfigFieldNullException _) {
+			super.setProperty(k,def.toString());
+		}
+	}
+
+	public BigDecimal getBigDecimal(String k) {
+		String v = super.getProperty(k);
+		if (v == null) throw new ConfigFieldNullException(k);
+		try {
+			return new BigDecimal(v);
+		} catch (NumberFormatException _) {
+			throw new ConfigFieldException(k,"Invalid format for BigDecimal");
+		}
+	}
+
+	public void defaultString(String k, String def) {
 	try {
 	    getString(k);
 	} catch (ConfigFieldNullException _) {
