@@ -177,8 +177,9 @@ public class WalletRPC extends Thread implements RequestHandler {
     req.coinSelector = sendSelector;
     // This ensures we have enough balance. Throws InsufficientMoneyException otherwise.
     // Does not actually mark anything as spent yet.
-    kit.wallet().completeTx(req); 
-    queuedPaylist = provisionalQueue;
+    kit.wallet().completeTx(req);
+// disable queueing for now, it's unreliable
+//    queuedPaylist = provisionalQueue;
     queuedTx = provisionalTx;
   }
 
@@ -187,13 +188,15 @@ public class WalletRPC extends Thread implements RequestHandler {
       log.info("sending transaction " + queuedTx.getHash().toString());
       kit.wallet().commitTx(queuedTx);
       kit.peerGroup().broadcastTransaction(queuedTx);
-      queuedTx.getConfidence().addEventListener(new Sendinel());
-      nextSend.set(queuedTx);
-      currentSend = queuedTx;
-      queuedTx = null;
-      queuedPaylist = new ArrayList<TransactionOutput>();
-      nextSend = SettableFuture.create();
-      return currentSend;
+      return queuedTx;
+// disable queueing for now, it's unreliable
+//      queuedTx.getConfidence().addEventListener(new Sendinel());
+//      nextSend.set(queuedTx);
+//      currentSend = queuedTx;
+//      queuedTx = null;
+//      queuedPaylist = new ArrayList<TransactionOutput>();
+//      nextSend = SettableFuture.create();
+//      return nextSend;
   }
 
   private class Sendinel implements TransactionConfidence.Listener {
