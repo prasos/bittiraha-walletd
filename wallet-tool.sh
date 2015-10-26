@@ -1,2 +1,2 @@
 #!/bin/sh
-java -cp lib/wallet-tool.jar org.bitcoinj.tools.WalletTool $@
+java -cp tools/wallet-tool.jar org.bitcoinj.tools.WalletTool $@
