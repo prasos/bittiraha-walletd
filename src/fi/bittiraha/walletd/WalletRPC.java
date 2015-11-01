@@ -1,15 +1,7 @@
 package fi.bittiraha.walletd;
 
-import fi.bittiraha.walletd.JSONRPC2Handler;
-import fi.bittiraha.walletd.WalletAccountManager;
-import fi.bittiraha.walletd.BalanceCoinSelector;
-import fi.bittiraha.walletd.ConfirmedCoinSelector;
 import fi.bittiraha.util.ConfigFile;
 
-import java.net.InetSocketAddress;
-import com.sun.net.httpserver.HttpServer;
-
-import java.text.*;
 import java.util.*;
 import java.io.*;
 import java.math.BigDecimal;
@@ -22,11 +14,7 @@ import org.bitcoinj.core.*;
 import org.bitcoinj.store.*;
 import org.bitcoinj.wallet.*;
 import org.bitcoinj.params.MainNetParams;
-import org.bitcoinj.crypto.KeyCrypterException;
 import org.bitcoinj.utils.BriefLogFormatter;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -35,11 +23,8 @@ import org.bitcoinj.utils.Threading;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.*;
 
-import com.google.common.base.Joiner;
 import static com.google.common.base.Preconditions.*;
 
-import java.util.logging.Level;
-import java.util.logging.LogManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.xml.bind.DatatypeConverter;
@@ -49,7 +34,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   private final NetworkParameters params;
   private String filePrefix;
   private int port;
-  private WalletAccountManager kit;
+  private WalletApp kit;
   private Map account;
   private JSONRPC2Handler server;
   private Coin paytxfee;
@@ -91,7 +76,7 @@ public class WalletRPC extends Thread implements RequestHandler {
 
     try {
       log.info(filePrefix + ": wallet starting.");
-      kit = new WalletAccountManager(params, new File("."), filePrefix);
+      kit = new WalletApp(params, new File("."), filePrefix);
   
       kit.startAsync();
       server = new JSONRPC2Handler(port, this);
@@ -113,6 +98,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       "sendtoaddress",
       "sendmany",
       "sendfrom",
+      "sendonce",
       "validateaddress",
       "settxfee",
       "listunspent"
@@ -236,6 +222,24 @@ public class WalletRPC extends Thread implements RequestHandler {
               }
           }
   
+  }
+
+  private String sendonce(Map<String,Object> paylist, String identifier)
+    throws InsufficientMoneyException, AddressFormatException,
+            InterruptedException,ExecutionException {
+    sendlock.lock();
+    if (kit.sendonceMap.containsKey(identifier)) {
+      sendlock.unlock();
+      log.info("sendonce call for used identifier " + identifier +
+               ". Returning the old txid " + kit.sendonceMap.get(identifier));
+      return kit.sendonceMap.get(identifier);
+    } else {
+      String txid = sendmany(paylist);
+      kit.sendonceMap.put(identifier,txid);
+      sendlock.unlock();
+      log.info("sendonce call with new identifier. Sent tx " + txid);
+      return txid;
+    }
   }
 
   private String sendmany(Map<String,Object> _paylist)
@@ -387,8 +391,17 @@ public class WalletRPC extends Thread implements RequestHandler {
           paylist.put((String)rp.get(1),rp.get(2));
           response = sendmany(paylist);
           break;
+        case "sendonce":
+          Object rp1 = rp.get(1);
+          if (String.class.isInstance(rp1)) {
+            // This is here to allow sendonce to work with bitcoin-cli in the same manner as sendmany
+            response = sendonce((JSONObject)JSONValue.parse((String)rp1), (String) rp.get(0));
+          } else { // Please call it this way though.
+            response = sendonce((JSONObject)rp1, (String) rp.get(0));
+          }
+          break;
         case "sendmany":
-          response = sendmany((JSONObject)JSONValue.parse((String)rp.get(0)));
+          response = sendmany((JSONObject)rp.get(1));
           break;
         case "validateaddress":
           response = validateaddress((String)rp.get(0));
