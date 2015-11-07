@@ -2,6 +2,7 @@ package fi.bittiraha.walletd;
 
 import fi.bittiraha.util.ConfigFile;
 
+import java.math.RoundingMode;
 import java.util.*;
 import java.io.*;
 import java.math.BigDecimal;
@@ -61,6 +62,8 @@ public class WalletRPC extends Thread implements RequestHandler {
     }
     config.defaultBoolean("start",true);
     config.defaultBoolean("sendUnconfirmedChange",true);
+    config.defaultInteger("targetCoinCount",8);
+    config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     //defaults.setProperty("trustedPeer","1.2.3.4");
   }
 
@@ -136,10 +139,38 @@ public class WalletRPC extends Thread implements RequestHandler {
     return result;
   }
 
+  private long getConfirmedCoinCount() {
+    BigDecimal count = new BigDecimal(0);
+    BigDecimal target = config.getBigDecimal("targetCoinAmount");
+    for (TransactionOutput coin : kit.wallet().calculateAllSpendCandidates(false,false)) {
+      if (coin.getParentTransactionDepthInBlocks() > 0) {
+        count = count.add(target.min(coin2BigDecimal(coin.getValue())).divide(target));
+      }
+    }
+    return count.setScale(0,BigDecimal.ROUND_FLOOR).longValue();
+  }
   private Transaction newTransaction(List<TransactionOutput> paylist) {
     Transaction tx = new Transaction(params);
+    Coin totalOut = Coin.ZERO;
     for (TransactionOutput out : paylist) {
       tx.addOutput(out);
+      totalOut.add(out.getValue());
+    }
+    CoinSelection inputs = sendSelector.select(totalOut,kit.wallet().calculateAllSpendCandidates(false,false));
+    Coin totalIn = Coin.ZERO;
+    for (TransactionOutput in : inputs.gathered) {
+      tx.addInput(in);
+      totalIn.add(in.getValue());
+    }
+    Coin change = totalIn.subtract(totalOut);
+    Coin target = Coin.parseCoin(config.getBigDecimal("targetCoinAmount").toString());
+    long pieces = change.divide(target);
+    long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
+    if (extraChange > 0) {
+      Coin extraChangeAmount = change.divide(extraChange + 1);
+      for (int i=0;i<extraChange;i++) {
+        tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
+      }
     }
     return tx;
   }
