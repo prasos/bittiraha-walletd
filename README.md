@@ -30,7 +30,9 @@ Currently supported configuration options are `start` and `sendUnconfirmedChange
 if you add `start=0` to either `testnet.conf` or `mainnet.conf`, that completely disables running that network.
 `sendUnconfirmedChange=0` means that the wallet will not send coins forward before they have at least one confirmation. It also means no unconfirmed coins, even own change coins, will be counted towards balances reported by getinfo or getbalance.
 
-## Implemented RPC calls
+## Implemented Bitcoind RPC calls
+
+Please refer to Bitcoind documentation for how to use these.
 ```
 getinfo
 getnewaddress
@@ -43,6 +45,14 @@ sendfrom "ignored" "bitcoinaddress" amount
 validateaddress "bitcoinaddress"
 listunspent (minconf maxconf ["address",...])
 ```
+
+## TODO Bitcoind RPC calls
+These RPC calls are on my list of things to implement when I've got the time or I actually need them.
+```
+listtransactions
+listsinceblock
+```
+
 ## RPC extensions:
 
 ### sendonce
