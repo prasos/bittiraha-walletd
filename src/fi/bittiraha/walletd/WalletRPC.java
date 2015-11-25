@@ -1,34 +1,42 @@
 package fi.bittiraha.walletd;
 
-import fi.bittiraha.util.ConfigFile;
-
-import java.math.RoundingMode;
-import java.util.*;
-import java.io.*;
-import java.math.BigDecimal;
-
-import com.thetransactioncompany.jsonrpc2.*;
-import com.thetransactioncompany.jsonrpc2.server.*;
-import net.minidev.json.*;
-
-import org.bitcoinj.core.*;
-import org.bitcoinj.store.*;
-import org.bitcoinj.wallet.*;
-import org.bitcoinj.params.MainNetParams;
-import org.bitcoinj.utils.BriefLogFormatter;
-
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-
+import com.thetransactioncompany.jsonrpc2.JSONRPC2Error;
+import com.thetransactioncompany.jsonrpc2.JSONRPC2Request;
+import com.thetransactioncompany.jsonrpc2.JSONRPC2Response;
+import com.thetransactioncompany.jsonrpc2.server.MessageContext;
+import com.thetransactioncompany.jsonrpc2.server.RequestHandler;
+import fi.bittiraha.util.ConfigFile;
+import net.minidev.json.JSONArray;
+import net.minidev.json.JSONObject;
+import net.minidev.json.JSONValue;
+import org.bitcoinj.core.*;
+import org.bitcoinj.params.MainNetParams;
+import org.bitcoinj.store.BlockStoreException;
+import org.bitcoinj.utils.BriefLogFormatter;
 import org.bitcoinj.utils.Threading;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.*;
-
-import static com.google.common.base.Preconditions.*;
-
+import org.bitcoinj.wallet.CoinSelection;
+import org.bitcoinj.wallet.CoinSelector;
+import org.bitcoinj.wallet.KeyChain;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import javax.xml.bind.DatatypeConverter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static com.google.common.base.Preconditions.checkState;
 
 public class WalletRPC extends Thread implements RequestHandler {
   private static final Logger log = LoggerFactory.getLogger(WalletRPC.class);
@@ -117,23 +125,21 @@ public class WalletRPC extends Thread implements RequestHandler {
   // Dang this function looks UGLY and overly verbose. It really should be doable in a couple of lines.
   private List<TransactionOutput> parsePaylist(Map<String,Object> paylist) throws AddressFormatException {
     List<TransactionOutput> result = new ArrayList<TransactionOutput>(paylist.size());
-    Iterator<Map.Entry<String,Object>> entries = paylist.entrySet().iterator();
-    while (entries.hasNext()) {
-      Map.Entry<String,Object> entry = entries.next();
+    for (Map.Entry<String, Object> entry : paylist.entrySet()) {
       Coin value = Coin.parseCoin(entry.getValue().toString());
       String key = entry.getKey();
       if (key.toLowerCase().startsWith("0x")) {
-	  // Parsing as hex encoded output script
-	  try {
-	      byte[] script = DatatypeConverter.parseHexBinary(key.substring(2));
-	      result.add(new TransactionOutput(params,null,value,script));
-	  } catch (IllegalArgumentException e) {
-	      throw new AddressFormatException("Parsing target as script but is not hexadecimal");
-	  }
+        // Parsing as hex encoded output script
+        try {
+          byte[] script = DatatypeConverter.parseHexBinary(key.substring(2));
+          result.add(new TransactionOutput(params, null, value, script));
+        } catch (IllegalArgumentException e) {
+          throw new AddressFormatException("Parsing target as script but is not hexadecimal");
+        }
       } else {
-	  // Parsing as an ordinary bitcoin address
-	  Address target = new Address(params, key);
-	  result.add(new TransactionOutput(params,null,value,target));
+        // Parsing as an ordinary bitcoin address
+        Address target = new Address(params, key);
+        result.add(new TransactionOutput(params, null, value, target));
       }
     }
     return result;
@@ -144,7 +150,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     BigDecimal target = config.getBigDecimal("targetCoinAmount");
     for (TransactionOutput coin : kit.wallet().calculateAllSpendCandidates(false,false)) {
       if (coin.getParentTransactionDepthInBlocks() > 0) {
-        count = count.add(target.min(coin2BigDecimal(coin.getValue())).divide(target));
+        count = count.add(target.min(coin2BigDecimal(coin.getValue())).divide(target,8,BigDecimal.ROUND_HALF_UP));
       }
     }
     return count.setScale(0,BigDecimal.ROUND_FLOOR).longValue();
@@ -371,7 +377,9 @@ public class WalletRPC extends Thread implements RequestHandler {
     JSONArray reply = new JSONArray();
     List<TransactionOutput> unspent = kit.wallet().calculateAllSpendCandidates(true, true);
     for (TransactionOutput out : unspent) {
-      int depth = out.getParentTransaction().getConfidence().getDepthInBlocks();
+      Transaction parent = out.getParentTransaction();
+      int depth = -1;
+      if (parent != null) depth = parent.getConfidence().getDepthInBlocks();
       String addr = txoutScript2String(params,out);
       if (minconf <= depth && depth <= maxconf && (addresses.size() == 0 || addresses.contains(addr))) {
         JSONObject coin = new JSONObject();

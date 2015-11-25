@@ -32,7 +32,7 @@ public class WalletApp extends WalletAppKit {
     public void deserializeWalletExtension(Wallet containingWallet, byte[] data) {
       Object parsed = JSONValue.parse(data);
       if (parsed instanceof JSONObject) {
-        this.merge((JSONObject)parsed);
+        this.merge(parsed);
       } else {
         log.warn("Unable to decode AccountManager Extension data.");
       }
