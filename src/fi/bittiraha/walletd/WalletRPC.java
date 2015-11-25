@@ -177,6 +177,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       for (int i=0;i<extraChange;i++) {
         tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
       }
+      log.info("Added " + extraChange + " extra change outputs of " + extraChangeAmount.toFriendlyString() + " each.");
     }
     return tx;
   }
