@@ -154,13 +154,13 @@ public class WalletRPC extends Thread implements RequestHandler {
     Coin totalOut = Coin.ZERO;
     for (TransactionOutput out : paylist) {
       tx.addOutput(out);
-      totalOut.add(out.getValue());
+      totalOut = totalOut.add(out.getValue());
     }
     CoinSelection inputs = sendSelector.select(totalOut,kit.wallet().calculateAllSpendCandidates(false,false));
     Coin totalIn = Coin.ZERO;
     for (TransactionOutput in : inputs.gathered) {
       tx.addInput(in);
-      totalIn.add(in.getValue());
+      totalIn = totalIn.add(in.getValue());
     }
     Coin change = totalIn.subtract(totalOut);
     Coin target = Coin.parseCoin(config.getBigDecimal("targetCoinAmount").toString());

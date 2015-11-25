@@ -24,11 +24,25 @@ Wallet file for mainnet is `mainnet.wallet` and for testnet `testnet.wallet`.
 
 ## Configuration
 There are two configuration files. One for mainnet `mainnet.conf` and one for testnet `testnet.conf`.
-They will not be created automatically.
+They will not be created automatically. a config file expressing the default settings would look like this
+```
+# start determines whether this network will be started. 1 means start, 0 means don't
+start=1
 
-Currently supported configuration options are `start` and `sendUnconfirmedChange`. They both default to 1.
-if you add `start=0` to either `testnet.conf` or `mainnet.conf`, that completely disables running that network.
-`sendUnconfirmedChange=0` means that the wallet will not send coins forward before they have at least one confirmation. It also means no unconfirmed coins, even own change coins, will be counted towards balances reported by getinfo or getbalance.
+# sendUnconfirmedChange determines whether walletd will consider unconfirmed change outputs spendable.
+# 1 means they are spendable, 0 means they're not. You can use this to deal with malleability attack and
+# to make your transactions look less risky to accept as 0-conf.
+sendUnconfirmedChange=1
+
+# targetCoinCount and targetCoinAmount control automatic splitting of change, which is helpful if sendUncofirmedChange
+# is disabled. If you wish to disable the feature, set targetCoinCount to 0. Basically, walletd will split the change
+# into more than one output when change is more than targetCoinAmount and there are less than targetCoinCount outputs
+# of at least targetCoinAmount coins present in the wallet. Outputs smaller than targetCoinAmount will be counted as
+# fractional outputs.
+targetCoinCount=8
+targetCoinAmount=0.5
+```
+
 
 ## Implemented Bitcoind RPC calls
 
