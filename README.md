@@ -43,6 +43,61 @@ targetCoinCount=8
 targetCoinAmount=0.5
 ```
 
+## Working with the Wallet
+
+If you wish to backup the wallet file itself, you can simply make a copy of the wallet file `mainnet.wallet`. The file
+is in the default bitcoinj protobuf format and usable with many other bitcoinj tools.
+
+The repository also includes a tool for manipulating bitcoinj wallet files. It's useful when you need to work with
+the wallet file directly. For example if you want to make a backup of the wallet's seed or restore a wallet from
+a seed. This tool was gratefully swiped from the bitcoinj repository.
+
+### Backing up the wallet seed
+
+Mainnet wallet: `sh wallet-tool.sh dump --wallet=mainnet.wallet --dump-privkeys | grep Seed`
+Testnet wallet: `sh wallet-tool.sh dump --wallet=testnet.wallet --dump-privkeys | grep Seed`
+
+You will see the seed in two formats. You only need one of them. One is a list of 12 words and the other is a
+long hexadecimal string of random letters and nunmbers. It's also a good idea to store the wallet creation date with
+the seed.
+
+### Resetting the wallet
+
+This cannot be done when walletd is running. Stop it first.
+
+Mainnet:
+```
+sh wallet-tool.sh reset --wallet=mainnet.wallet
+rm mainnet.spvchain
+```
+Testnet:
+```
+sh wallet-tool.sh reset --wallet=testnet.wallet
+rm testnet.spvchain
+```
+
+After this you need to start walletd again. It'll take a little while to be usable again.
+
+### Restoring wallet from Seed
+
+This should be done before starting walletd for the first time.
+
+Mainnet:
+```
+sh wallet-tool.sh create --wallet=mainnet.wallet --seed 'this is where you write the seed' --date 'YYYY/MM/DD'
+```
+
+Testnet:
+```
+sh wallet-tool.sh create --wallet=testnet.wallet --seed 'this is where you write the seed' --date 'YYYY/MM/DD'
+```
+
+These commands can't be just copy&pasted, you'll need to edit them to contain your seed. The date is for wallet
+creation date. Walletd will scan the network for transactions related to this wallet starting from that date. Date is
+not required, but syncing with the network is going to take much longer if you don't supply a date.
+
+When you start walletd after this, it'll synchronize with the blockchain. Make sure you delete the spvchain file first,
+if it exists.
 
 ## Implemented Bitcoind RPC calls
 
