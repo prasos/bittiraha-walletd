@@ -74,6 +74,9 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     config.defaultInteger("port",port);
 
+    config.defaultBigDecimal("randomMultiChangeMin", new BigDecimal("0.1"));
+    config.defaultBigDecimal("randomMultiChangeMax", new BigDecimal("0"));
+
     this.port = config.getInteger("port");
 
     //defaults.setProperty("trustedPeer","1.2.3.4");
@@ -174,14 +177,26 @@ public class WalletRPC extends Thread implements RequestHandler {
     }
     Coin change = totalIn.subtract(totalOut);
     Coin target = Coin.parseCoin(config.getBigDecimal("targetCoinAmount").toString());
-    long pieces = change.divide(target);
-    long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
-    if (extraChange > 0) {
-      Coin extraChangeAmount = change.divide(extraChange + 1);
-      for (int i=0;i<extraChange;i++) {
-        tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
+
+    if (config.getBigDecimal("randomMultiChangeMax") > BigDecimal(0))
+    {
+      Coin remainingChange = change;
+      while (remainingChange > )
+      {
+        
       }
-      log.info("Added " + extraChange + " extra change outputs of " + extraChangeAmount.toFriendlyString() + " each.");
+    }
+    else
+    {
+      long pieces = change.divide(target);
+      long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
+      if (extraChange > 0) {
+        Coin extraChangeAmount = change.divide(extraChange + 1);
+        for (int i=0;i<extraChange;i++) {
+          tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
+        }
+        log.info("Added " + extraChange + " extra change outputs of " + extraChangeAmount.toFriendlyString() + " each.");
+      }
     }
     return tx;
   }
