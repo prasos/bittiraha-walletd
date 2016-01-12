@@ -75,7 +75,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     config.defaultInteger("port",port);
 
-    this.port = getInteger("port");
+    this.port = config.getInteger("port");
 
     //defaults.setProperty("trustedPeer","1.2.3.4");
   }
