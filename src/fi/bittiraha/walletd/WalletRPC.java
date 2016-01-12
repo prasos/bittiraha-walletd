@@ -74,7 +74,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     config.defaultInteger("port",port);
 
-    config.defaultBoolean("multipleRandomChange", false);
+    config.defaultBoolean("randomizeChangeOutputs", false);
 
     this.port = config.getInteger("port");
 
@@ -177,26 +177,18 @@ public class WalletRPC extends Thread implements RequestHandler {
     Coin change = totalIn.subtract(totalOut);
     Coin target = Coin.parseCoin(config.getBigDecimal("targetCoinAmount").toString());
 
-    if (config.getBoolean("multipleRandomChange"))
-    {
-      Coin remainingChange = change;
-      while (remainingChange > config.getBigDecimal("randomMultiChangeMax"))
+    long pieces = change.divide(target);
+    long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
+    if (extraChange > 0) {
+      Coin extraChangeAmount = change.divide(extraChange + 1);
+      if (config.getBoolean("randomizeChangeOutputs")
       {
-        long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
-        BigDecimal randFromDouble = new BigDecimal(Math.random());
+        
       }
-    }
-    else
-    {
-      long pieces = change.divide(target);
-      long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
-      if (extraChange > 0) {
-        Coin extraChangeAmount = change.divide(extraChange + 1);
-        for (int i=0;i<extraChange;i++) {
-          tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
-        }
-        log.info("Added " + extraChange + " extra change outputs of " + extraChangeAmount.toFriendlyString() + " each.");
+      for (int i=0;i<extraChange;i++) {
+        tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
       }
+      log.info("Added " + extraChange + " extra change outputs of " + extraChangeAmount.toFriendlyString() + " each.");
     }
     return tx;
   }
