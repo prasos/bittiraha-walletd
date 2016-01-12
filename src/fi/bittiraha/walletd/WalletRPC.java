@@ -73,6 +73,10 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBoolean("sendUnconfirmedChange",true);
     config.defaultInteger("targetCoinCount",8);
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
+    config.defaultInteger("port",port);
+
+    this.port = getInteger("port");
+
     //defaults.setProperty("trustedPeer","1.2.3.4");
   }
 
