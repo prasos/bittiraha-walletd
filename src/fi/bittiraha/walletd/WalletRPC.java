@@ -74,8 +74,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     config.defaultInteger("port",port);
 
-    config.defaultBigDecimal("randomMultiChangeMin", new BigDecimal("0.1"));
-    config.defaultBigDecimal("randomMultiChangeMax", new BigDecimal("0"));
+    config.defaultBoolean("multipleRandomChange", false);
 
     this.port = config.getInteger("port");
 
@@ -178,12 +177,13 @@ public class WalletRPC extends Thread implements RequestHandler {
     Coin change = totalIn.subtract(totalOut);
     Coin target = Coin.parseCoin(config.getBigDecimal("targetCoinAmount").toString());
 
-    if (config.getBigDecimal("randomMultiChangeMax") > BigDecimal(0))
+    if (config.getBoolean("multipleRandomChange"))
     {
       Coin remainingChange = change;
-      while (remainingChange > )
+      while (remainingChange > config.getBigDecimal("randomMultiChangeMax"))
       {
-        
+        long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
+        BigDecimal randFromDouble = new BigDecimal(Math.random());
       }
     }
     else
