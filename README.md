@@ -15,9 +15,18 @@ Build process currently uses ant. To build, you can run the build script.
 
 ## Running
 
+Requirements are moreutils, java, jdk and ant. On ubuntu:
+
+	sudo aptitude install moreutils default-jre default-jdk ant
+
+On OS X install JDK manually. moreutils and ant can be installed with homebrew
+
+	brew install ant moreutils
+
 Running requires a somewhat complex command, so the codebase includes run.sh script for that.
 To start walletd, run:
-`sh run.sh`
+
+	`sh run.sh`
 
 Walletd supports both mainnet and testnet. Default configuration will run both at once.
 Wallet file for mainnet is `mainnet.wallet` and for testnet `testnet.wallet`.
