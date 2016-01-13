@@ -504,7 +504,7 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
       }
     } catch (InsufficientMoneyException e) {
-      JSONRPC2Error error = new JSONRPC2Error(-6,"Insufficient funds",e.getMessage());
+      JSONRPC2Error error = new JSONRPC2Error(-6,"Insufficient funds");
       return new JSONRPC2Response(error,req.getID());
     } catch (AddressFormatException e) {
       JSONRPC2Error error = new JSONRPC2Error(-5,"Invalid Bitcoin address",e.getMessage());
