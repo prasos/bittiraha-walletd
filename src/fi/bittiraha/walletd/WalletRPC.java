@@ -119,7 +119,8 @@ public class WalletRPC extends Thread implements RequestHandler {
       "validateaddress",
       "getrawtransaction",
       "settxfee",
-      "listunspent"
+      "listunspent",
+      "estimate_fee"
     };
   }
     
@@ -473,6 +474,12 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "getrawtransaction":
           response = getrawtransaction((String)rp.get(0));
+          break;
+        case "estimate_fee":
+          // recommended not to use this function, but if used, try to return something sensible
+          if ((long)rp.get(0) < 3L) { response = "0.00052186"; }
+          else if ((long)rp.get(0) < 6L) { response = "0.00018234"; }
+          else { response = "0.00017992"; }
           break;
         case "getinfo":
           response = getinfo();
