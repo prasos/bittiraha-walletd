@@ -52,6 +52,20 @@ The repository also includes a tool for manipulating bitcoinj wallet files. It's
 the wallet file directly. For example if you want to make a backup of the wallet's seed or restore a wallet from
 a seed. This tool was gratefully swiped from the bitcoinj repository.
 
+### Creating wallet
+
+Mainnet:
+```
+sh wallet-tool.sh create --wallet=mainnet.wallet
+```
+
+Testnet:
+```
+sh wallet-tool.sh create --wallet=testnet.wallet --net=TEST
+```
+
+These commands will create files mainnet.wallet and testnet.wallet, which will contain unencrypted wallet data.
+
 ### Backing up the wallet seed
 
 Mainnet wallet: `sh wallet-tool.sh dump --wallet=mainnet.wallet --dump-privkeys | grep Seed`
