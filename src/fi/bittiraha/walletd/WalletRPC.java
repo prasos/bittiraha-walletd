@@ -179,22 +179,28 @@ public class WalletRPC extends Thread implements RequestHandler {
 
     long pieces = change.divide(target);
     long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
-    if (extraChange > 0) {
-      if (config.getBoolean("randomizeChangeOutputs"))
-      {
-        while (target.compareTo(change) <= 0) {
-          double changeLeft = (double)(change.subtract(target).longValue()) * 0.00000001;
-          double min = Math.min(config.getBigDecimal("targetCoinAmount").doubleValue() * 0.25, 0.01);
-          double max = Math.min(config.getBigDecimal("targetCoinAmount").doubleValue() * 2.0, changeLeft);
-          double randomOutput = min + (max - min) * Math.random();
-          Coin extraChangeAmount = Coin.parseCoin(Double.toString(randomOutput));
-          tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
-          target = target.add(extraChangeAmount);
-        }
-        log.info("Added " + target.toFriendlyString() + " amount of extra outputs.");
+    if (config.getBoolean("randomizeChangeOutputs"))
+    {
+      log.info("Adding random change outputs, change " + change.toFriendlyString() + ", target " + target.toFriendlyString() );
+      // add some extra change addresses
+      while (target.compareTo(change) <= 0) {
+        double changeLeft = ((double)(change.subtract(target).longValue())) * 0.00000001;
+        double fee = ((double)(paytxfee.longValue())) * 0.00000001;
+        double min = Math.max(config.getBigDecimal("targetCoinAmount").doubleValue() * 0.25, 0.01);
+        double max = Math.min(config.getBigDecimal("targetCoinAmount").doubleValue() * 2.0, changeLeft);
+        if (max <= min) { break; }
+        double randomOutput = min + (max - min) * Math.random();
+        if (randomOutput < fee * 10.0) { log.info("Too small random output " + Double.toString(randomOutput)); break; }
+        // Convert to satoshis
+        Coin extraChangeAmount = Coin.valueOf((long)(randomOutput*100000000));
+        tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
+        log.info("Added " + extraChangeAmount.toFriendlyString() + " extra randomized output, change left " + Double.toString(changeLeft));
+        target = target.add(extraChangeAmount);
       }
-      else
-      {
+    }
+    else
+    {
+      if (extraChange > 0) {
         Coin extraChangeAmount = change.divide(extraChange + 1);
         for (int i=0;i<extraChange;i++) {
           tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
