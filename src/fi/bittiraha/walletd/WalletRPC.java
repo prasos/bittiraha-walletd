@@ -73,6 +73,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultInteger("targetCoinCount",8);
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     config.defaultInteger("port",port);
+    config.defaultBoolean("useTor",false);
 
     config.defaultBoolean("randomizeChangeOutputs", false);
 
@@ -94,6 +95,11 @@ public class WalletRPC extends Thread implements RequestHandler {
     try {
       log.info(filePrefix + ": wallet starting.");
       kit = new WalletApp(params, new File("."), filePrefix);
+
+      if (config.getBoolean("useTor"))
+      {
+        kit.useTor();
+      }
 
       kit.startAsync();
       server = new JSONRPC2Handler(port, this);
