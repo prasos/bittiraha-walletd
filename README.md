@@ -17,7 +17,7 @@ Build process currently uses ant. To build, you can run the build script.
 
 Requirements are moreutils, java, jdk and ant. On ubuntu:
 
-	sudo aptitude install moreutils default-jre default-jdk ant
+	sudo aptitude install moreutils openjdk-7-jre openjdk-7-jdk ant
 
 On OS X install JDK manually. moreutils and ant can be installed with homebrew
 
