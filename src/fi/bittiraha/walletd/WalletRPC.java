@@ -183,8 +183,9 @@ public class WalletRPC extends Thread implements RequestHandler {
       if (config.getBoolean("randomizeChangeOutputs"))
       {
         while (target.compareTo(change) <= 0) {
+          double changeLeft = (double)(change.subtract(target).longValue()) * 0.00000001;
           double min = Math.min(config.getBigDecimal("targetCoinAmount").doubleValue() * 0.25, 0.01);
-          double max = Math.min(config.getBigDecimal("targetCoinAmount").doubleValue() * 2.0, 0.02);
+          double max = Math.min(config.getBigDecimal("targetCoinAmount").doubleValue() * 2.0, changeLeft);
           double randomOutput = min + (max - min) * Math.random();
           Coin extraChangeAmount = Coin.parseCoin(Double.toString(randomOutput));
           tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
