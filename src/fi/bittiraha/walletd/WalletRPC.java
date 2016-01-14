@@ -496,9 +496,9 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "estimatefee":
           // recommended not to use this function, but if used, try to return something sensible
-          if ((long)rp.get(0) < 3L) { response = "0.00052186"; }
-          else if ((long)rp.get(0) < 6L) { response = "0.00018234"; }
-          else { response = "0.00017992"; }
+          if ((long)rp.get(0) < 3L) { response = "0.00026186"; }
+          else if ((long)rp.get(0) < 6L) { response = "0.00010234"; }
+          else { response = "0.00008992"; }
           break;
         case "getinfo":
           response = getinfo();
