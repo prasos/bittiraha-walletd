@@ -73,6 +73,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultInteger("targetCoinCount",8);
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     config.defaultInteger("port",port);
+    config.defaultBoolean("useTor",false);
 
     // Note, tor support seems to be very unstable - not recommended
     config.defaultBoolean("useTor",false);
