@@ -72,6 +72,25 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBoolean("sendUnconfirmedChange",true);
     config.defaultInteger("targetCoinCount",8);
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
+    config.defaultInteger("port",port);
+    config.defaultBoolean("useTor",false);
+
+    // Note, tor support seems to be very unstable - not recommended
+    config.defaultBoolean("useTor",false);
+
+    config.defaultString("socksProxyHost","");
+    config.defaultString("socksProxyPort","");
+
+    if (config.getString("socksProxyHost") != "" && config.getString("socksProxyPort") != "")
+    {
+      System.setProperty("socksProxyHost", config.getString("socksProxyHost"));
+      System.setProperty("socksProxyPort", config.getString("socksProxyPort"));
+    }
+
+    config.defaultBoolean("randomizeChangeOutputs", false);
+
+    this.port = config.getInteger("port");
+
     //defaults.setProperty("trustedPeer","1.2.3.4");
   }
 
@@ -88,10 +107,15 @@ public class WalletRPC extends Thread implements RequestHandler {
     try {
       log.info(filePrefix + ": wallet starting.");
       kit = new WalletApp(params, new File("."), filePrefix);
-  
+
+      if (config.getBoolean("useTor"))
+      {
+        kit.useTor();
+      }
+
       kit.startAsync();
       server = new JSONRPC2Handler(port, this);
-    
+
       log.info(filePrefix + ": wallet running.");
     }
     catch (Exception e) {
@@ -112,10 +136,11 @@ public class WalletRPC extends Thread implements RequestHandler {
       "sendonce",
       "validateaddress",
       "settxfee",
-      "listunspent"
+      "listunspent",
+      "estimatefee"
     };
   }
-    
+
   private String getnewaddress() {
     String address = kit.wallet().freshReceiveKey().toAddress(params).toString();
     log.info(filePrefix + ": new receiveaddress " + address);
@@ -170,18 +195,41 @@ public class WalletRPC extends Thread implements RequestHandler {
     }
     Coin change = totalIn.subtract(totalOut);
     Coin target = Coin.parseCoin(config.getBigDecimal("targetCoinAmount").toString());
+
     long pieces = change.divide(target);
     long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
-    if (extraChange > 0) {
-      Coin extraChangeAmount = change.divide(extraChange + 1);
-      for (int i=0;i<extraChange;i++) {
+    if (config.getBoolean("randomizeChangeOutputs"))
+    {
+      log.info("Adding random change outputs, change " + change.toFriendlyString() + ", target " + target.toFriendlyString() );
+      // add some extra change addresses
+      while (target.compareTo(change) <= 0) {
+        double changeLeft = ((double)(change.subtract(target).longValue())) * 0.00000001;
+        double fee = ((double)(paytxfee.longValue())) * 0.00000001;
+        double min = Math.max(config.getBigDecimal("targetCoinAmount").doubleValue() * 0.25, 0.01);
+        double max = Math.min(config.getBigDecimal("targetCoinAmount").doubleValue() * 2.0, changeLeft);
+        if (max <= min) { break; }
+        double randomOutput = min + (max - min) * Math.random();
+        if (randomOutput < fee * 10.0) { log.info("Too small random output " + Double.toString(randomOutput)); break; }
+        // Convert to satoshis
+        Coin extraChangeAmount = Coin.valueOf((long)(randomOutput*100000000));
         tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
+        log.info("Added " + extraChangeAmount.toFriendlyString() + " extra randomized output, change left " + Double.toString(changeLeft));
+        target = target.add(extraChangeAmount);
       }
-      log.info("Added " + extraChange + " extra change outputs of " + extraChangeAmount.toFriendlyString() + " each.");
+    }
+    else
+    {
+      if (extraChange > 0) {
+        Coin extraChangeAmount = change.divide(extraChange + 1);
+        for (int i=0;i<extraChange;i++) {
+          tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
+        }
+        log.info("Added " + extraChange + " extra change outputs of " + extraChangeAmount.toFriendlyString() + " each.");
+      }
     }
     return tx;
   }
-  
+
   private Coin sumCoins(List<TransactionOutput> paylist) {
     Coin sum = Coin.ZERO;
     for (TransactionOutput out : paylist) {
@@ -189,7 +237,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     }
     return sum;
   }
-  
+
   private void prepareTx(List<TransactionOutput> paylist) throws InsufficientMoneyException {
     checkState(sendlock.isHeldByCurrentThread());
     log.info("preparing transaction");
@@ -259,7 +307,7 @@ public class WalletRPC extends Thread implements RequestHandler {
                   }
               }
           }
-  
+
   }
 
   private String sendonce(Map<String,Object> paylist, String identifier)
@@ -339,7 +387,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       result.put("ismine",addresses.contains(validated));
     } catch (AddressFormatException e) {
       result.put("isvalid",false);
-    } 
+    }
     return result;
   }
 
@@ -446,6 +494,12 @@ public class WalletRPC extends Thread implements RequestHandler {
         case "validateaddress":
           response = validateaddress((String)rp.get(0));
           break;
+        case "estimatefee":
+          // recommended not to use this function, but if used, try to return something sensible
+          if ((long)rp.get(0) < 3L) { response = "0.00026186"; }
+          else if ((long)rp.get(0) < 6L) { response = "0.00010234"; }
+          else { response = "0.00008992"; }
+          break;
         case "getinfo":
           response = getinfo();
           break;
@@ -475,12 +529,12 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
       }
     } catch (InsufficientMoneyException e) {
-      JSONRPC2Error error = new JSONRPC2Error(-6,"Insufficient funds",e.getMessage());
+      JSONRPC2Error error = new JSONRPC2Error(-6,"Insufficient funds");
       return new JSONRPC2Response(error,req.getID());
     } catch (AddressFormatException e) {
       JSONRPC2Error error = new JSONRPC2Error(-5,"Invalid Bitcoin address",e.getMessage());
       return new JSONRPC2Response(error,req.getID());
-    } catch (Exception e) { 
+    } catch (Exception e) {
       e.printStackTrace();
       JSONRPC2Error error = new JSONRPC2Error(-32602,"Invalid parameters",e.getMessage());
       return new JSONRPC2Response(error,req.getID());
