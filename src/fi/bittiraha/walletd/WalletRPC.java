@@ -74,6 +74,18 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     config.defaultInteger("port",port);
 
+    // Note, tor support seems to be very unstable - not recommended
+    config.defaultBoolean("useTor",false);
+
+    config.defaultString("socksProxyHost","");
+    config.defaultString("socksProxyPort","");
+
+    if (config.getString("socksProxyHost") != "" && config.getString("socksProxyPort") != "")
+    {
+      System.setProperty("socksProxyHost", config.getString("socksProxyHost"));
+      System.setProperty("socksProxyPort", config.getString("socksProxyPort"));
+    }
+
     config.defaultBoolean("randomizeChangeOutputs", false);
 
     this.port = config.getInteger("port");
@@ -94,6 +106,11 @@ public class WalletRPC extends Thread implements RequestHandler {
     try {
       log.info(filePrefix + ": wallet starting.");
       kit = new WalletApp(params, new File("."), filePrefix);
+
+      if (config.getBoolean("useTor"))
+      {
+        kit.useTor();
+      }
 
       kit.startAsync();
       server = new JSONRPC2Handler(port, this);
