@@ -111,6 +111,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       "sendfrom",
       "sendonce",
       "validateaddress",
+      "getrawtransaction",
       "settxfee",
       "listunspent"
     };
@@ -343,6 +344,11 @@ public class WalletRPC extends Thread implements RequestHandler {
     return result;
   }
 
+  private Object getrawtransaction(String txid) {
+    Transaction tx = kit.wallet().getTransaction(new Sha256Hash(txid));
+    return DatatypeConverter.printHexBinary(tx.bitcoinSerialize());
+  }
+
   private Object getinfo() throws BlockStoreException {
     JSONObject info = new JSONObject();
     StoredBlock chainHead = kit.store().getChainHead();
@@ -445,6 +451,9 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "validateaddress":
           response = validateaddress((String)rp.get(0));
+          break;
+        case "getrawtransaction":
+          response = getrawtransaction((String)rp.get(0));
           break;
         case "getinfo":
           response = getinfo();
