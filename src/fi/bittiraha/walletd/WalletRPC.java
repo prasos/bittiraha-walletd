@@ -348,7 +348,8 @@ public class WalletRPC extends Thread implements RequestHandler {
   }
 
   private Object getrawtransaction(String txid) {
-    Transaction tx = kit.wallet().getTransaction(new Sha256Hash(txid));
+    Transaction tx = kit.wallet().getTransaction(Sha256Hash.wrap(txid));
+    if (tx == null) return new JSONRPC2Error(-5,"No information available about transaction");
     return DatatypeConverter.printHexBinary(tx.bitcoinSerialize());
   }
 
