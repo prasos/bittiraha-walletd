@@ -164,6 +164,8 @@ public class WalletRPC extends Thread implements RequestHandler {
       tx.addOutput(out);
       totalOut = totalOut.add(out.getValue());
     }
+    long toTarget = (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount();
+    if (toTarget <= 0) return tx;
     CoinSelection inputs = sendSelector.select(totalOut,kit.wallet().calculateAllSpendCandidates(false,false));
     Coin totalIn = Coin.ZERO;
     for (TransactionOutput in : inputs.gathered) {
@@ -173,7 +175,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     Coin change = totalIn.subtract(totalOut);
     Coin target = Coin.parseCoin(config.getBigDecimal("targetCoinAmount").toString());
     long pieces = change.divide(target);
-    long extraChange = Math.min(pieces, (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount());
+    long extraChange = Math.min(pieces, toTarget);
     if (extraChange > 0) {
       Coin extraChangeAmount = change.divide(extraChange + 1);
       for (int i=0;i<extraChange;i++) {
