@@ -61,13 +61,14 @@ public class WalletRPC extends Thread implements RequestHandler {
     this.filePrefix = filePrefix;
     this.params = params;
     this.port = port;
-    this.paytxfee = Coin.parseCoin("0.00020011");
     try {
       config.load(new FileReader(filePrefix+".conf"));
     }
     catch (FileNotFoundException e) {
       log.info(filePrefix + ": config file "+filePrefix+".conf not found. Using defaults.");
     }
+    config.defaultString("paytxfee","0.00020011");
+    this.paytxfee = Coin.parseCoin(config.getString("paytxfee"));
     config.defaultBoolean("start",true);
     config.defaultBoolean("sendUnconfirmedChange",true);
     config.defaultInteger("targetCoinCount",8);
