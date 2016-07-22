@@ -91,6 +91,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       kit = new WalletApp(params, new File("."), filePrefix);
   
       kit.startAsync();
+
       server = new JSONRPC2Handler(port, this);
     
       log.info(filePrefix + ": wallet running.");
@@ -417,6 +418,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       JSONRPC2Error error = new JSONRPC2Error(-28,"Initializing...");
       return new JSONRPC2Response(error,req.getID());
     }
+    Context.propagate(kit.wallet().getContext());
     Object response = "dummy";
     List<Object> rp = req.getPositionalParams();
     String method = req.getMethod();
