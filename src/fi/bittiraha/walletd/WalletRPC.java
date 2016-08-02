@@ -67,7 +67,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     catch (FileNotFoundException e) {
       log.info(filePrefix + ": config file "+filePrefix+".conf not found. Using defaults.");
     }
-    config.defaultString("paytxfee","0.00020011");
+    config.defaultString("paytxfee","0.00050011");
     this.paytxfee = Coin.parseCoin(config.getString("paytxfee"));
     config.defaultBoolean("start",true);
     config.defaultBoolean("sendUnconfirmedChange",true);
