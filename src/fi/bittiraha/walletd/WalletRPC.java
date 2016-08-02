@@ -170,7 +170,6 @@ public class WalletRPC extends Thread implements RequestHandler {
     CoinSelection inputs = sendSelector.select(totalOut,kit.wallet().calculateAllSpendCandidates(false,false));
     Coin totalIn = Coin.ZERO;
     for (TransactionOutput in : inputs.gathered) {
-      tx.addInput(in);
       totalIn = totalIn.add(in.getValue());
     }
     Coin change = totalIn.subtract(totalOut);
@@ -178,6 +177,12 @@ public class WalletRPC extends Thread implements RequestHandler {
     long pieces = change.divide(target);
     long extraChange = Math.min(pieces, toTarget);
     if (extraChange > 0) {
+        // There's a lot of extra, make sure we go with these inputs.
+        // This should avoid the bitcoinj issue of adding duplicate
+        // inputs because there should be no need to add inputs in this case.
+      for (TransactionOutput in : inputs.gathered) {
+        tx.addInput(in);
+      }
       Coin extraChangeAmount = change.divide(extraChange + 1);
       for (int i=0;i<extraChange;i++) {
         tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
