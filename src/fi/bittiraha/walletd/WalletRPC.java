@@ -151,7 +151,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   private long getConfirmedCoinCount() {
     BigDecimal count = new BigDecimal(0);
     BigDecimal target = config.getBigDecimal("targetCoinAmount");
-    for (TransactionOutput coin : kit.wallet().calculateAllSpendCandidates(false,false)) {
+    for (TransactionOutput coin : kit.wallet().calculateAllSpendCandidates(true,true)) {
       if (coin.getParentTransactionDepthInBlocks() > 0) {
         count = count.add(target.min(coin2BigDecimal(coin.getValue())).divide(target,8,BigDecimal.ROUND_HALF_UP));
       }
@@ -167,7 +167,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     }
     long toTarget = (long) config.getInteger("targetCoinCount") - getConfirmedCoinCount();
     if (toTarget <= 0) return tx;
-    CoinSelection inputs = sendSelector.select(totalOut,kit.wallet().calculateAllSpendCandidates(false,false));
+    CoinSelection inputs = sendSelector.select(totalOut,kit.wallet().calculateAllSpendCandidates(true,true));
     Coin totalIn = Coin.ZERO;
     for (TransactionOutput in : inputs.gathered) {
       totalIn = totalIn.add(in.getValue());
@@ -392,7 +392,9 @@ public class WalletRPC extends Thread implements RequestHandler {
     List<String> addresses = new ArrayList<String>(filter.size());
     for (Object item : filter) addresses.add((String) item);
     JSONArray reply = new JSONArray();
-    List<TransactionOutput> unspent = kit.wallet().calculateAllSpendCandidates(true, true);
+    // We want to list absolutely everything, so we call
+    // calculateAllSpendCandidates with false, false.
+    List<TransactionOutput> unspent = kit.wallet().calculateAllSpendCandidates(false, false);
     for (TransactionOutput out : unspent) {
       Transaction parent = out.getParentTransaction();
       int depth = -1;
