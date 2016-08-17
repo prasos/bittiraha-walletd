@@ -276,17 +276,19 @@ public class WalletRPC extends Thread implements RequestHandler {
     throws InsufficientMoneyException, AddressFormatException,
             InterruptedException,ExecutionException {
     sendlock.lock();
-    if (kit.sendonceMap.containsKey(identifier)) {
+    try {
+      if (kit.sendonceMap.containsKey(identifier)) {
+        log.info("sendonce call for used identifier " + identifier +
+                 ". Returning the old txid " + kit.sendonceMap.get(identifier));
+        return kit.sendonceMap.get(identifier);
+      } else {
+        String txid = sendmany(paylist);
+        kit.sendonceMap.put(identifier,txid);
+        log.info("sendonce call with new identifier " + identifier + ". Sent tx " + txid);
+        return txid;
+      }
+    } finally {
       sendlock.unlock();
-      log.info("sendonce call for used identifier " + identifier +
-               ". Returning the old txid " + kit.sendonceMap.get(identifier));
-      return kit.sendonceMap.get(identifier);
-    } else {
-      String txid = sendmany(paylist);
-      kit.sendonceMap.put(identifier,txid);
-      sendlock.unlock();
-      log.info("sendonce call with new identifier. Sent tx " + txid);
-      return txid;
     }
   }
 
