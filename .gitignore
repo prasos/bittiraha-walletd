@@ -6,3 +6,4 @@ testnet.spvchain
 debug.log
 debug.log.old
 build
+target

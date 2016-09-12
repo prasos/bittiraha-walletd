@@ -6,18 +6,43 @@ For the moment, there is no support for bitcoind accounts. Parameters with accou
 
 If you need to access walletd from the command-line, one option is to use bitcoin-cli from bitcoind.
 
+
+
 ## Compiling
-Developed with jdk 1.7.
+
+Developed with JDK 1.7. There are two ways to compile. With Ant scripts or Maven. 
+
+
+## Ant: Compiling
+
 All dependencies are included as .jar files under lib directory. A pull request with a working maven integration welcome.
 
 Build process currently uses ant. To build, you can run the build script.
 `sh build.sh`
 
-## Running
+## Ant: Running
 
 Running requires a somewhat complex command, so the codebase includes run.sh script for that.
 To start walletd, run:
 `sh run.sh`
+
+## Maven: Compiling
+
+`mvn package`
+
+## Maven: Running
+
+`java -jar target/bittiraha-walletd-0.1-SNAPSHOT.jar`
+
+## Maven: Testing
+
+`mvn test`
+
+## Todo
+
+- [ ] Tests
+
+
 
 Walletd supports both mainnet and testnet. Default configuration will run both at once.
 Wallet file for mainnet is `mainnet.wallet` and for testnet `testnet.wallet`.
