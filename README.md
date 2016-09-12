@@ -1,3 +1,7 @@
+# Experimental
+
+Do not use in production
+
 # bittiraha-walletd
 Lightweight Bitcoin RPC compatible HD wallet
 
@@ -5,8 +9,6 @@ This project is meant as a drop-in replacement for bitcoind for use in lightweig
 For the moment, there is no support for bitcoind accounts. Parameters with account names are ignored.
 
 If you need to access walletd from the command-line, one option is to use bitcoin-cli from bitcoind.
-
-
 
 ## Compiling
 
