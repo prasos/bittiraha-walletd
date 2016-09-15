@@ -63,6 +63,9 @@ a seed. This tool was gratefully swiped from the bitcoinj repository.
 
 ### Creating wallet
 
+Walletd will automatically create a new wallet if it's started without one. However, if you wish to create them manually,
+here's how.
+
 Mainnet:
 ```
 sh wallet-tool.sh create --wallet=mainnet.wallet
