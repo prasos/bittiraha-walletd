@@ -98,7 +98,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       return;
     }
     if (!config.getBoolean("sendUnconfirmedChange")) {
-      log.info(filePrefix + ": Will not send unconfirmed coins under any circumstances.");
+      log.info(filePrefix + ": Will not send unconfirmed coins, even our own change.");
       sendSelector = new ConfirmedCoinSelector();
     }
 
@@ -234,8 +234,6 @@ public class WalletRPC extends Thread implements RequestHandler {
     // This ensures we have enough balance. Throws InsufficientMoneyException otherwise.
     // Does not actually mark anything as spent yet.
     kit.wallet().completeTx(req);
-// disable queueing for now, it's unreliable
-//    queuedPaylist = provisionalQueue;
     queuedTx = provisionalTx;
   }
 
@@ -245,53 +243,6 @@ public class WalletRPC extends Thread implements RequestHandler {
       kit.wallet().commitTx(queuedTx);
       kit.peerGroup().broadcastTransaction(queuedTx);
       return queuedTx;
-// disable queueing for now, it's unreliable
-//      queuedTx.getConfidence().addEventListener(new Sendinel());
-//      nextSend.set(queuedTx);
-//      currentSend = queuedTx;
-//      queuedTx = null;
-//      queuedPaylist = new ArrayList<TransactionOutput>();
-//      nextSend = SettableFuture.create();
-//      return nextSend;
-  }
-
-  private class Sendinel implements TransactionConfidence.Listener {
-          @Override
-          public void onConfidenceChanged(TransactionConfidence confidence,
-                                          TransactionConfidence.Listener.ChangeReason reason) {
-              if (confidence.numBroadcastPeers() >= 1 ||
-                  confidence.getConfidenceType().equals(TransactionConfidence.ConfidenceType.BUILDING)) {
-                  confidence.removeEventListener(this);
-                  if (currentSend == null) return;
-                  if (confidence.getTransactionHash().equals(currentSend.getHash())) {
-                      log.info("Done with " + confidence.getTransactionHash().toString());
-                      sendlock.lock();
-                      try {
-                        currentSend = null;
-                        if (queuedPaylist.size() > 0) {
-                          prepareTx(null);
-                          reallySend();
-                        }
-                      } catch (Exception e) {
-                        log.info("Got exception:" + e.toString());
-                        nextSend.setException(e);
-                        nextSend = SettableFuture.create();
-                        queuedPaylist = new ArrayList<TransactionOutput>();
-                        queuedTx = null;
-                      } finally {
-                        sendlock.unlock();
-                      }
-                  } else {
-                      log.info("Ignored " + confidence.getTransactionHash().toString() +
-                               " currentSend: " + currentSend.getHash().toString() +
-                               " comparison: " + (confidence.getTransactionHash() == currentSend.getHash()) +
-                               " " + confidence.numBroadcastPeers() +
-                               " " + reason.toString()
-                      );
-                  }
-              }
-          }
-  
   }
 
   private String sendonce(Map<String,Object> paylist, String identifier)
