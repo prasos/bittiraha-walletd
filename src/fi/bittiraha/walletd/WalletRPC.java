@@ -137,7 +137,8 @@ public class WalletRPC extends Thread implements RequestHandler {
       "getrawtransaction",
       "settxfee",
       "listunspent",
-      "estimatefee"
+      "estimatefee",
+      "getpeerinfo"
     };
   }
     
@@ -354,6 +355,18 @@ public class WalletRPC extends Thread implements RequestHandler {
     return info;
   }
 
+  private Object getpeerinfo() {
+    JSONArray info = new JSONArray();
+    List<Peer> peers = kit.peerGroup().getConnectedPeers();
+    for (Peer p : peers) {
+        JSONObject peer = new JSONObject();
+        PeerAddress pad = p.getAddress();
+        peer.put("addr",pad.getAddr().getHostAddress() + ":" + pad.getPort());
+        info.add(peer);
+    }
+    return info;
+  }
+
   public static String txoutScript2String(NetworkParameters params, TransactionOutput out) {
     Address addr;
     addr = out.getAddressFromP2PKHScript(params);
@@ -451,6 +464,9 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "getinfo":
           response = getinfo();
+          break;
+        case "getpeerinfo":
+          response = getpeerinfo();
           break;
         case "settxfee":
           response = settxfee(rp.get(0).toString());
