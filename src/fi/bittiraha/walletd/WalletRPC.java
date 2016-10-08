@@ -138,7 +138,8 @@ public class WalletRPC extends Thread implements RequestHandler {
       "settxfee",
       "listunspent",
       "estimatefee",
-      "getpeerinfo"
+      "getpeerinfo",
+      "getreceivedbyaddress"
     };
   }
     
@@ -148,6 +149,18 @@ public class WalletRPC extends Thread implements RequestHandler {
     return address;
   }
 
+  private BigDecimal getreceivedbyaddress(String address) {
+    Coin retval = Coin.ZERO;
+	List<TransactionOutput> unspent = kit.wallet().calculateAllSpendCandidates(false, false);
+	for (TransactionOutput out : unspent) {
+	  String outAddress = txoutScript2String(params,out);
+	  if (outAddress == address){
+	    retval.add(out.getValue());
+	  }
+	}
+	return coin2BigDecimal(retval);
+  }
+  
   // Dang this function looks UGLY and overly verbose. It really should be doable in a couple of lines.
   private List<TransactionOutput> parsePaylist(Map<String,Object> paylist) throws AddressFormatException {
     List<TransactionOutput> result = new ArrayList<TransactionOutput>(paylist.size());
@@ -489,6 +502,9 @@ public class WalletRPC extends Thread implements RequestHandler {
           }
           response = listunspent(minconf,maxconf,filter);
           break;
+        case "getreceivedbyaddress":
+          response = getreceivedbyaddress((String)rp.get(0));
+          break;
         default:
           response = JSONRPC2Error.METHOD_NOT_FOUND;
           break;
@@ -506,4 +522,5 @@ public class WalletRPC extends Thread implements RequestHandler {
     }
     return new JSONRPC2Response(response,req.getID());
   }
+
 }
