@@ -19,6 +19,7 @@ import org.bitcoinj.utils.Threading;
 import org.bitcoinj.wallet.CoinSelection;
 import org.bitcoinj.wallet.CoinSelector;
 import org.bitcoinj.wallet.KeyChain;
+import org.bitcoinj.wallet.WalletTransaction.Pool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +30,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -151,14 +153,26 @@ public class WalletRPC extends Thread implements RequestHandler {
 
   private BigDecimal getreceivedbyaddress(String address) {
     Coin retval = Coin.ZERO;
-	List<TransactionOutput> unspent = kit.wallet().calculateAllSpendCandidates(false, false);
-	for (TransactionOutput out : unspent) {
-	  String outAddress = txoutScript2String(params,out);
-	  if (outAddress == address){
-	    retval.add(out.getValue());
-	  }
-	}
-	return coin2BigDecimal(retval);
+    Map<Sha256Hash, Transaction> transactions = kit.wallet().getTransactionPool(Pool.SPENT);
+    retval = retval.add(receivedByAddress(address, transactions));
+    transactions = kit.wallet().getTransactionPool(Pool.UNSPENT);
+    retval = retval.add(receivedByAddress(address, transactions));
+    return coin2BigDecimal(retval);
+  }
+
+  private Coin receivedByAddress(String address, Map<Sha256Hash, Transaction> transactionsMap) {
+    Coin retval = Coin.ZERO;
+    Collection<Transaction> transactions = transactionsMap.values();
+    for (Transaction transaction: transactions){
+      for (TransactionOutput out : transaction.getOutputs()) {
+        String outAddress = txoutScript2String(params,out);
+        if (outAddress.equals(address)){
+          Coin value = out.getValue();
+          retval = retval.add(value);
+        }
+      }
+    }
+    return retval;
   }
   
   // Dang this function looks UGLY and overly verbose. It really should be doable in a couple of lines.
