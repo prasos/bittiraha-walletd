@@ -151,19 +151,22 @@ public class WalletRPC extends Thread implements RequestHandler {
     return address;
   }
 
-  private BigDecimal getreceivedbyaddress(String address) {
+  private BigDecimal getreceivedbyaddress(String address, long minconf) {
     Coin retval = Coin.ZERO;
-    Map<Sha256Hash, Transaction> transactions = kit.wallet().getTransactionPool(Pool.SPENT);
-    retval = retval.add(receivedByAddress(address, transactions));
-    transactions = kit.wallet().getTransactionPool(Pool.UNSPENT);
-    retval = retval.add(receivedByAddress(address, transactions));
+    for (Pool pool: Pool.values()){
+      Map<Sha256Hash, Transaction> transactions = kit.wallet().getTransactionPool(pool);
+      retval = retval.add(receivedByAddress(address, minconf, transactions));
+    }
     return coin2BigDecimal(retval);
   }
 
-  private Coin receivedByAddress(String address, Map<Sha256Hash, Transaction> transactionsMap) {
+  private Coin receivedByAddress(String address, long minconf, Map<Sha256Hash, Transaction> transactionsMap) {
     Coin retval = Coin.ZERO;
     Collection<Transaction> transactions = transactionsMap.values();
     for (Transaction transaction: transactions){
+      if (transaction.getConfidence().getDepthInBlocks() < minconf){
+        continue;
+      }
       for (TransactionOutput out : transaction.getOutputs()) {
         String outAddress = txoutScript2String(params,out);
         if (outAddress.equals(address)){
@@ -517,7 +520,11 @@ public class WalletRPC extends Thread implements RequestHandler {
           response = listunspent(minconf,maxconf,filter);
           break;
         case "getreceivedbyaddress":
-          response = getreceivedbyaddress((String)rp.get(0));
+          minconf = 1l;
+          if (rp.size() == 2){
+            minconf = (long)rp.get(1);
+          }
+          response = getreceivedbyaddress((String)rp.get(0), minconf);
           break;
         default:
           response = JSONRPC2Error.METHOD_NOT_FOUND;
