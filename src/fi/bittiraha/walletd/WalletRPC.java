@@ -19,6 +19,7 @@ import org.bitcoinj.utils.Threading;
 import org.bitcoinj.wallet.CoinSelection;
 import org.bitcoinj.wallet.CoinSelector;
 import org.bitcoinj.wallet.KeyChain;
+import org.bitcoinj.wallet.WalletTransaction.Pool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +30,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -138,7 +140,8 @@ public class WalletRPC extends Thread implements RequestHandler {
       "settxfee",
       "listunspent",
       "estimatefee",
-      "getpeerinfo"
+      "getpeerinfo",
+      "getreceivedbyaddress"
     };
   }
     
@@ -148,6 +151,33 @@ public class WalletRPC extends Thread implements RequestHandler {
     return address;
   }
 
+  private BigDecimal getreceivedbyaddress(String address, long minconf) {
+    Coin retval = Coin.ZERO;
+    for (Pool pool: Pool.values()){
+      Map<Sha256Hash, Transaction> transactions = kit.wallet().getTransactionPool(pool);
+      retval = retval.add(receivedByAddress(address, minconf, transactions));
+    }
+    return coin2BigDecimal(retval);
+  }
+
+  private Coin receivedByAddress(String address, long minconf, Map<Sha256Hash, Transaction> transactionsMap) {
+    Coin retval = Coin.ZERO;
+    Collection<Transaction> transactions = transactionsMap.values();
+    for (Transaction transaction: transactions){
+      if (transaction.getConfidence().getDepthInBlocks() < minconf){
+        continue;
+      }
+      for (TransactionOutput out : transaction.getOutputs()) {
+        String outAddress = txoutScript2String(params,out);
+        if (outAddress.equals(address)){
+          Coin value = out.getValue();
+          retval = retval.add(value);
+        }
+      }
+    }
+    return retval;
+  }
+  
   // Dang this function looks UGLY and overly verbose. It really should be doable in a couple of lines.
   private List<TransactionOutput> parsePaylist(Map<String,Object> paylist) throws AddressFormatException {
     List<TransactionOutput> result = new ArrayList<TransactionOutput>(paylist.size());
@@ -489,6 +519,13 @@ public class WalletRPC extends Thread implements RequestHandler {
           }
           response = listunspent(minconf,maxconf,filter);
           break;
+        case "getreceivedbyaddress":
+          minconf = 1l;
+          if (rp.size() == 2){
+            minconf = (long)rp.get(1);
+          }
+          response = getreceivedbyaddress((String)rp.get(0), minconf);
+          break;
         default:
           response = JSONRPC2Error.METHOD_NOT_FOUND;
           break;
@@ -506,4 +543,5 @@ public class WalletRPC extends Thread implements RequestHandler {
     }
     return new JSONRPC2Response(response,req.getID());
   }
+
 }
