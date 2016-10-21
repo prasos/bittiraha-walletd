@@ -29,6 +29,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.security.SignatureException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -141,10 +142,24 @@ public class WalletRPC extends Thread implements RequestHandler {
       "listunspent",
       "estimatefee",
       "getpeerinfo",
-      "getreceivedbyaddress"
+      "getreceivedbyaddress",
+      "signmessage",
+      "verifymessage"
     };
   }
     
+  private boolean verifymessage(String address, String signature, String message) throws  AddressFormatException, SignatureException {
+    ECKey signerkey = ECKey.signedMessageToKey(message, signature);
+    return signerkey.toAddress(params).equals(new Address(params,address));
+  }
+  
+  private String signmessage(String address, String message) throws AddressFormatException, Exception {
+    Address pub = new Address(params,address);
+    ECKey key = kit.wallet().findKeyFromPubHash(pub.getHash160());
+    if (key != null) return key.signMessage(message);
+    else throw new Exception("Private key not available");
+  }
+
   private String getnewaddress() {
     String address = kit.wallet().freshReceiveKey().toAddress(params).toString();
     log.info(filePrefix + ": new receiveaddress " + address);
@@ -459,6 +474,12 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "getunconfirmedbalance":
           response = getunconfirmedbalance();
+          break;
+        case "signmessage":
+          response = signmessage((String)rp.get(0),(String)rp.get(1));
+          break;
+        case "verifymessage":
+          response = verifymessage((String)rp.get(0),(String)rp.get(1),(String)rp.get(2));
           break;
         case "sendtoaddress":
           paylist.put((String)rp.get(0),rp.get(1));
