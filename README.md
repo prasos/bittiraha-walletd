@@ -11,6 +11,8 @@ Developed with jdk 1.7.
 
 Build process uses gradle.
 
+	./gradlew build
+
 ## Running
 
 Requirements are moreutils, java and jdk. On ubuntu:
@@ -23,7 +25,7 @@ On OS X install JDK manually. moreutils and ant can be installed with homebrew
 
 To start walletd, run:
 
-	`./gradlew run`
+	./gradlew run
 
 Walletd supports both mainnet and testnet. Default configuration will run both at once.
 Wallet file for mainnet is `mainnet.wallet` and for testnet `testnet.wallet`.
