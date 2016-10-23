@@ -1,0 +1,16 @@
+apply plugin: 'application'
+
+mainClassName = "fi.bittiraha.walletd.Main"
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    compile 'org.bitcoinj:bitcoinj-core:0.13.6'
+    compile 'org.apache.commons:commons-lang3:3.4'
+    compile 'com.thetransactioncompany:jsonrpc2-server:1.11'
+    compile 'commons-io:commons-io:2.4'
+    compile 'org.slf4j:slf4j-simple:1.7.12'
+}
+

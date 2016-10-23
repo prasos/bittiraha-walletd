@@ -8,25 +8,24 @@ If you need to access walletd from the command-line, one option is to use bitcoi
 
 ## Compiling
 Developed with jdk 1.7.
-All dependencies are included as .jar files under lib directory. A pull request with a working maven integration welcome.
 
-Build process currently uses ant. To build, you can run the build script.
-`sh build.sh`
+Build process uses gradle.
+
+	./gradlew build
 
 ## Running
 
-Requirements are moreutils, java, jdk and ant. On ubuntu:
+Requirements are moreutils, java and jdk. On ubuntu:
 
-	sudo aptitude install moreutils openjdk-7-jre openjdk-7-jdk ant
+	sudo aptitude install moreutils openjdk-7-jre openjdk-7-jdk 
 
 On OS X install JDK manually. moreutils and ant can be installed with homebrew
 
-	brew install ant moreutils
+	brew install moreutils
 
-Running requires a somewhat complex command, so the codebase includes run.sh script for that.
 To start walletd, run:
 
-	`sh run.sh`
+	./gradlew run
 
 Walletd supports both mainnet and testnet. Default configuration will run both at once.
 Wallet file for mainnet is `mainnet.wallet` and for testnet `testnet.wallet`.
