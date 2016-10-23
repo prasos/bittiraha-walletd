@@ -1,4 +1,5 @@
 .idea
+.gradle
 mainnet.wallet
 mainnet.spvchain
 testnet.wallet
@@ -6,3 +7,4 @@ testnet.spvchain
 debug.log
 debug.log.old
 build
+/bin/
