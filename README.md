@@ -136,6 +136,9 @@ sendmany "ignored" {"address":amount,...}
 sendfrom "ignored" "bitcoinaddress" amount
 validateaddress "bitcoinaddress"
 listunspent (minconf maxconf ["address",...])
+signmessage "bitcoinaddress" "message"
+verifymessage "bitcoinaddress" "signature" "message"
+getreceivedbyaddress "bitcoinaddress" ( minconf )
 ```
 
 ## TODO Bitcoind RPC calls
