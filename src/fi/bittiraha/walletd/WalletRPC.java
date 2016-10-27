@@ -144,10 +144,18 @@ public class WalletRPC extends Thread implements RequestHandler {
       "getpeerinfo",
       "getreceivedbyaddress",
       "signmessage",
-      "verifymessage"
+      "verifymessage",
+      "dumpprivkey"
     };
   }
     
+  private String dumpprivkey(String address) throws AddressFormatException, Exception {
+    Address pub = new Address(params,address);
+    ECKey key = kit.wallet().findKeyFromPubHash(pub.getHash160());
+    if (key != null) return key.getPrivateKeyAsWiF(params);
+    else throw new Exception("Private key not available");
+  }
+
   private boolean verifymessage(String address, String signature, String message) throws  AddressFormatException, SignatureException {
     ECKey signerkey = ECKey.signedMessageToKey(message, signature);
     return signerkey.toAddress(params).equals(new Address(params,address));
@@ -474,6 +482,9 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "getunconfirmedbalance":
           response = getunconfirmedbalance();
+          break;
+        case "dumpprivkey":
+          response = dumpprivkey((String)rp.get(0));
           break;
         case "signmessage":
           response = signmessage((String)rp.get(0),(String)rp.get(1));
