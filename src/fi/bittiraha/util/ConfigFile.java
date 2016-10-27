@@ -22,7 +22,7 @@ public class ConfigFile extends Properties {
     public void defaultBoolean(String k, boolean def) {
 	try {
 	    getBoolean(k);
-	} catch (ConfigFieldNullException _) {
+	} catch (ConfigFieldNullException e) {
 	    super.setProperty(k, def ? "1" : "0");
 	}
     }
@@ -43,7 +43,7 @@ public class ConfigFile extends Properties {
 	public void defaultInteger(String k,int def) {
 		try {
 			getString(k);
-		} catch (ConfigFieldNullException _) {
+		} catch (ConfigFieldNullException e) {
 			super.setProperty(k,Integer.toString(def));
 		}
 	}
@@ -53,7 +53,7 @@ public class ConfigFile extends Properties {
 		if (v == null) throw new ConfigFieldNullException(k);
 		try {
 			return Integer.parseInt(v);
-		} catch (NumberFormatException _) {
+		} catch (NumberFormatException e) {
 			throw new ConfigFieldException(k,"Invalid format for Integer");
 		}
 	}
@@ -61,7 +61,7 @@ public class ConfigFile extends Properties {
 	public void defaultBigDecimal(String k,BigDecimal def) {
 		try {
 			getString(k);
-		} catch (ConfigFieldNullException _) {
+		} catch (ConfigFieldNullException e) {
 			super.setProperty(k,def.toString());
 		}
 	}
@@ -71,7 +71,7 @@ public class ConfigFile extends Properties {
 		if (v == null) throw new ConfigFieldNullException(k);
 		try {
 			return new BigDecimal(v);
-		} catch (NumberFormatException _) {
+		} catch (NumberFormatException e) {
 			throw new ConfigFieldException(k,"Invalid format for BigDecimal");
 		}
 	}
@@ -79,7 +79,7 @@ public class ConfigFile extends Properties {
 	public void defaultString(String k, String def) {
 	try {
 	    getString(k);
-	} catch (ConfigFieldNullException _) {
+	} catch (ConfigFieldNullException e) {
 	    super.setProperty(k, def);
 	}
     }

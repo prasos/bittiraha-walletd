@@ -16,9 +16,7 @@ import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.utils.BriefLogFormatter;
 import org.bitcoinj.utils.Threading;
-import org.bitcoinj.wallet.CoinSelection;
-import org.bitcoinj.wallet.CoinSelector;
-import org.bitcoinj.wallet.KeyChain;
+import org.bitcoinj.wallet.*;
 import org.bitcoinj.wallet.WalletTransaction.Pool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -282,7 +280,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     List<TransactionOutput> provisionalQueue = new ArrayList<TransactionOutput>(queuedPaylist);
     if (paylist != null) provisionalQueue.addAll(paylist);
     Transaction provisionalTx = newTransaction(provisionalQueue);
-    Wallet.SendRequest req = Wallet.SendRequest.forTx(provisionalTx);
+    SendRequest req = SendRequest.forTx(provisionalTx);
     req.feePerKb = paytxfee;
     req.coinSelector = sendSelector;
     // This ensures we have enough balance. Throws InsufficientMoneyException otherwise.
