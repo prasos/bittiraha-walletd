@@ -43,6 +43,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   private static final Logger log = LoggerFactory.getLogger(WalletRPC.class);
   private final NetworkParameters params;
   private String filePrefix;
+  private String hostName;
   private int port;
   private WalletApp kit;
   private Map account;
@@ -74,6 +75,7 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBoolean("sendUnconfirmedChange",true);
     config.defaultInteger("targetCoinCount",8);
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
+    config.defaultString("hostName","localhost");
     config.defaultInteger("port",port);
 
     // Note, tor support seems to be very unstable - not recommended
@@ -88,6 +90,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       System.setProperty("socksProxyPort", config.getString("socksProxyPort"));
     }
 
+    this.hostName = config.getString("hostName");
     this.port = config.getInteger("port");
 
     //defaults.setProperty("trustedPeer","1.2.3.4");
@@ -114,7 +117,7 @@ public class WalletRPC extends Thread implements RequestHandler {
 
       kit.startAsync();
 
-      server = new JSONRPC2Handler(port, this);
+      server = new JSONRPC2Handler(hostName, port, this);
     
       log.info(filePrefix + ": wallet running.");
     }
