@@ -6,4 +6,5 @@ WORKDIR /usr/src/app
 
 #VOLUME ["/usr/src/walletd"]
 EXPOSE 8332 8333 18332 18333
-CMD ["java", "-jar", "target/bittiraha-walletd-${VERSION}-SNAPSHOT-shaded.jar"]
+CMD ["java", "-jar", "/usr/src/app/target/bittiraha-walletd-0.1-SNAPSHOT.jar"]
+
