@@ -39,7 +39,7 @@ public class WalletApp extends WalletAppKit {
         log.warn("Unable to decode AccountManager Extension data.");
       }
       try {
-        sendonceMap.putAll((Map) this.get("sendonceMap"));
+        sendonceMap.putAll((Map<String,String>) this.get("sendonceMap"));
       } catch (ClassCastException e) {
         throw new ClassCastException("sendonceMap is corrupt. Please rebuild the wallet.");
       }

@@ -28,10 +28,10 @@ import java.lang.Runtime;
 class JSONRPC2Handler implements HttpHandler {
     private RequestHandler handler;
     private HttpServer server;
-    public JSONRPC2Handler(int port, RequestHandler h) throws Exception {
+    public JSONRPC2Handler(String hostName, int port, RequestHandler h) throws Exception {
       int cores = Runtime.getRuntime().availableProcessors();
       handler = h;
-      server = HttpServer.create(new InetSocketAddress(InetAddress.getByName("localhost"),port), 0);
+      server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(hostName),port), 0);
       server.createContext("/", this);
       server.setExecutor(Executors.newFixedThreadPool(cores));
       server.start();
