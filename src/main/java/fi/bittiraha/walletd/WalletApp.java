@@ -5,6 +5,8 @@ import org.bitcoinj.kits.WalletAppKit;
 import net.minidev.json.*;
 import com.google.common.collect.ImmutableList;
 import org.bitcoinj.utils.BriefLogFormatter;
+import org.bitcoinj.wallet.Wallet;
+import org.bitcoinj.wallet.WalletExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

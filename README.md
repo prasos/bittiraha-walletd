@@ -24,9 +24,18 @@ Build process currently uses ant. To build, you can run the build script.
 
 ## Ant: Running
 
+Requirements are moreutils, java, jdk and ant. On ubuntu:
+
+	sudo aptitude install moreutils openjdk-7-jre openjdk-7-jdk ant
+
+On OS X install JDK manually. moreutils and ant can be installed with homebrew
+
+	brew install ant moreutils
+
 Running requires a somewhat complex command, so the codebase includes run.sh script for that.
 To start walletd, run:
-`sh run.sh`
+
+	`sh run.sh`
 
 ## Maven: Compiling
 
@@ -78,6 +87,23 @@ is in the default bitcoinj protobuf format and usable with many other bitcoinj t
 The repository also includes a tool for manipulating bitcoinj wallet files. It's useful when you need to work with
 the wallet file directly. For example if you want to make a backup of the wallet's seed or restore a wallet from
 a seed. This tool was gratefully swiped from the bitcoinj repository.
+
+### Creating wallet
+
+Walletd will automatically create a new wallet if it's started without one. However, if you wish to create them manually,
+here's how.
+
+Mainnet:
+```
+sh wallet-tool.sh create --wallet=mainnet.wallet
+```
+
+Testnet:
+```
+sh wallet-tool.sh create --wallet=testnet.wallet --net=TEST
+```
+
+These commands will create files mainnet.wallet and testnet.wallet, which will contain unencrypted wallet data.
 
 ### Backing up the wallet seed
 
@@ -140,6 +166,9 @@ sendmany "ignored" {"address":amount,...}
 sendfrom "ignored" "bitcoinaddress" amount
 validateaddress "bitcoinaddress"
 listunspent (minconf maxconf ["address",...])
+signmessage "bitcoinaddress" "message"
+verifymessage "bitcoinaddress" "signature" "message"
+getreceivedbyaddress "bitcoinaddress" ( minconf )
 ```
 
 ## TODO Bitcoind RPC calls

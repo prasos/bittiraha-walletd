@@ -16,9 +16,8 @@ import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.utils.BriefLogFormatter;
 import org.bitcoinj.utils.Threading;
-import org.bitcoinj.wallet.CoinSelection;
-import org.bitcoinj.wallet.CoinSelector;
-import org.bitcoinj.wallet.KeyChain;
+import org.bitcoinj.wallet.*;
+import org.bitcoinj.wallet.WalletTransaction.Pool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +27,9 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.security.SignatureException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -73,6 +74,22 @@ public class WalletRPC extends Thread implements RequestHandler {
     config.defaultBoolean("sendUnconfirmedChange",true);
     config.defaultInteger("targetCoinCount",8);
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
+    config.defaultInteger("port",port);
+
+    // Note, tor support seems to be very unstable - not recommended
+    config.defaultBoolean("useTor",false);
+
+    config.defaultString("socksProxyHost","");
+    config.defaultString("socksProxyPort","");
+
+    if (config.getString("socksProxyHost") != "" && config.getString("socksProxyPort") != "")
+    {
+      System.setProperty("socksProxyHost", config.getString("socksProxyHost"));
+      System.setProperty("socksProxyPort", config.getString("socksProxyPort"));
+    }
+
+    this.port = config.getInteger("port");
+
     //defaults.setProperty("trustedPeer","1.2.3.4");
   }
 
@@ -82,14 +99,19 @@ public class WalletRPC extends Thread implements RequestHandler {
       return;
     }
     if (!config.getBoolean("sendUnconfirmedChange")) {
-      log.info(filePrefix + ": Will not send unconfirmed coins under any circumstances.");
+      log.info(filePrefix + ": Will not send unconfirmed coins, even our own change.");
       sendSelector = new ConfirmedCoinSelector();
     }
 
     try {
       log.info(filePrefix + ": wallet starting.");
       kit = new WalletApp(params, new File("."), filePrefix);
-  
+
+      if (config.getBoolean("useTor"))
+      {
+        kit.useTor();
+      }
+
       kit.startAsync();
 
       server = new JSONRPC2Handler(port, this);
@@ -115,16 +137,68 @@ public class WalletRPC extends Thread implements RequestHandler {
       "validateaddress",
       "getrawtransaction",
       "settxfee",
-      "listunspent"
+      "listunspent",
+      "estimatefee",
+      "getpeerinfo",
+      "getreceivedbyaddress",
+      "signmessage",
+      "verifymessage",
+      "dumpprivkey"
     };
   }
     
+  private String dumpprivkey(String address) throws AddressFormatException, Exception {
+    Address pub = new Address(params,address);
+    ECKey key = kit.wallet().findKeyFromPubHash(pub.getHash160());
+    if (key != null) return key.getPrivateKeyAsWiF(params);
+    else throw new Exception("Private key not available");
+  }
+
+  private boolean verifymessage(String address, String signature, String message) throws  AddressFormatException, SignatureException {
+    ECKey signerkey = ECKey.signedMessageToKey(message, signature);
+    return signerkey.toAddress(params).equals(new Address(params,address));
+  }
+  
+  private String signmessage(String address, String message) throws AddressFormatException, Exception {
+    Address pub = new Address(params,address);
+    ECKey key = kit.wallet().findKeyFromPubHash(pub.getHash160());
+    if (key != null) return key.signMessage(message);
+    else throw new Exception("Private key not available");
+  }
+
   private String getnewaddress() {
     String address = kit.wallet().freshReceiveKey().toAddress(params).toString();
     log.info(filePrefix + ": new receiveaddress " + address);
     return address;
   }
 
+  private BigDecimal getreceivedbyaddress(String address, long minconf) {
+    Coin retval = Coin.ZERO;
+    for (Pool pool: Pool.values()){
+      Map<Sha256Hash, Transaction> transactions = kit.wallet().getTransactionPool(pool);
+      retval = retval.add(receivedByAddress(address, minconf, transactions));
+    }
+    return coin2BigDecimal(retval);
+  }
+
+  private Coin receivedByAddress(String address, long minconf, Map<Sha256Hash, Transaction> transactionsMap) {
+    Coin retval = Coin.ZERO;
+    Collection<Transaction> transactions = transactionsMap.values();
+    for (Transaction transaction: transactions){
+      if (transaction.getConfidence().getDepthInBlocks() < minconf){
+        continue;
+      }
+      for (TransactionOutput out : transaction.getOutputs()) {
+        String outAddress = txoutScript2String(params,out);
+        if (outAddress.equals(address)){
+          Coin value = out.getValue();
+          retval = retval.add(value);
+        }
+      }
+    }
+    return retval;
+  }
+  
   // Dang this function looks UGLY and overly verbose. It really should be doable in a couple of lines.
   private List<TransactionOutput> parsePaylist(Map<String,Object> paylist) throws AddressFormatException {
     List<TransactionOutput> result = new ArrayList<TransactionOutput>(paylist.size());
@@ -206,14 +280,12 @@ public class WalletRPC extends Thread implements RequestHandler {
     List<TransactionOutput> provisionalQueue = new ArrayList<TransactionOutput>(queuedPaylist);
     if (paylist != null) provisionalQueue.addAll(paylist);
     Transaction provisionalTx = newTransaction(provisionalQueue);
-    Wallet.SendRequest req = Wallet.SendRequest.forTx(provisionalTx);
+    SendRequest req = SendRequest.forTx(provisionalTx);
     req.feePerKb = paytxfee;
     req.coinSelector = sendSelector;
     // This ensures we have enough balance. Throws InsufficientMoneyException otherwise.
     // Does not actually mark anything as spent yet.
     kit.wallet().completeTx(req);
-// disable queueing for now, it's unreliable
-//    queuedPaylist = provisionalQueue;
     queuedTx = provisionalTx;
   }
 
@@ -223,53 +295,6 @@ public class WalletRPC extends Thread implements RequestHandler {
       kit.wallet().commitTx(queuedTx);
       kit.peerGroup().broadcastTransaction(queuedTx);
       return queuedTx;
-// disable queueing for now, it's unreliable
-//      queuedTx.getConfidence().addEventListener(new Sendinel());
-//      nextSend.set(queuedTx);
-//      currentSend = queuedTx;
-//      queuedTx = null;
-//      queuedPaylist = new ArrayList<TransactionOutput>();
-//      nextSend = SettableFuture.create();
-//      return nextSend;
-  }
-
-  private class Sendinel implements TransactionConfidence.Listener {
-          @Override
-          public void onConfidenceChanged(TransactionConfidence confidence,
-                                          TransactionConfidence.Listener.ChangeReason reason) {
-              if (confidence.numBroadcastPeers() >= 1 ||
-                  confidence.getConfidenceType().equals(TransactionConfidence.ConfidenceType.BUILDING)) {
-                  confidence.removeEventListener(this);
-                  if (currentSend == null) return;
-                  if (confidence.getTransactionHash().equals(currentSend.getHash())) {
-                      log.info("Done with " + confidence.getTransactionHash().toString());
-                      sendlock.lock();
-                      try {
-                        currentSend = null;
-                        if (queuedPaylist.size() > 0) {
-                          prepareTx(null);
-                          reallySend();
-                        }
-                      } catch (Exception e) {
-                        log.info("Got exception:" + e.toString());
-                        nextSend.setException(e);
-                        nextSend = SettableFuture.create();
-                        queuedPaylist = new ArrayList<TransactionOutput>();
-                        queuedTx = null;
-                      } finally {
-                        sendlock.unlock();
-                      }
-                  } else {
-                      log.info("Ignored " + confidence.getTransactionHash().toString() +
-                               " currentSend: " + currentSend.getHash().toString() +
-                               " comparison: " + (confidence.getTransactionHash() == currentSend.getHash()) +
-                               " " + confidence.numBroadcastPeers() +
-                               " " + reason.toString()
-                      );
-                  }
-              }
-          }
-  
   }
 
   private String sendonce(Map<String,Object> paylist, String identifier)
@@ -381,6 +406,18 @@ public class WalletRPC extends Thread implements RequestHandler {
     return info;
   }
 
+  private Object getpeerinfo() {
+    JSONArray info = new JSONArray();
+    List<Peer> peers = kit.peerGroup().getConnectedPeers();
+    for (Peer p : peers) {
+        JSONObject peer = new JSONObject();
+        PeerAddress pad = p.getAddress();
+        peer.put("addr",pad.getAddr().getHostAddress() + ":" + pad.getPort());
+        info.add(peer);
+    }
+    return info;
+  }
+
   public static String txoutScript2String(NetworkParameters params, TransactionOutput out) {
     Address addr;
     addr = out.getAddressFromP2PKHScript(params);
@@ -444,6 +481,15 @@ public class WalletRPC extends Thread implements RequestHandler {
         case "getunconfirmedbalance":
           response = getunconfirmedbalance();
           break;
+        case "dumpprivkey":
+          response = dumpprivkey((String)rp.get(0));
+          break;
+        case "signmessage":
+          response = signmessage((String)rp.get(0),(String)rp.get(1));
+          break;
+        case "verifymessage":
+          response = verifymessage((String)rp.get(0),(String)rp.get(1),(String)rp.get(2));
+          break;
         case "sendtoaddress":
           paylist.put((String)rp.get(0),rp.get(1));
           response = sendmany(paylist);
@@ -470,8 +516,17 @@ public class WalletRPC extends Thread implements RequestHandler {
         case "getrawtransaction":
           response = getrawtransaction((String)rp.get(0));
           break;
+        case "estimatefee":
+          // recommended not to use this function, but if used, try to return something sensible
+          if ((long)rp.get(0) < 3L) { response = "0.00052186"; }
+          else if ((long)rp.get(0) < 6L) { response = "0.0003234"; }
+          else { response = "0.00017992"; }
+          break;
         case "getinfo":
           response = getinfo();
+          break;
+        case "getpeerinfo":
+          response = getpeerinfo();
           break;
         case "settxfee":
           response = settxfee(rp.get(0).toString());
@@ -494,6 +549,13 @@ public class WalletRPC extends Thread implements RequestHandler {
           }
           response = listunspent(minconf,maxconf,filter);
           break;
+        case "getreceivedbyaddress":
+          minconf = 1l;
+          if (rp.size() == 2){
+            minconf = (long)rp.get(1);
+          }
+          response = getreceivedbyaddress((String)rp.get(0), minconf);
+          break;
         default:
           response = JSONRPC2Error.METHOD_NOT_FOUND;
           break;
@@ -511,4 +573,5 @@ public class WalletRPC extends Thread implements RequestHandler {
     }
     return new JSONRPC2Response(response,req.getID());
   }
+
 }
