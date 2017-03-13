@@ -257,9 +257,10 @@ public class WalletRPC extends Thread implements RequestHandler {
         // There's a lot of extra, make sure we go with these inputs.
         // This should avoid the bitcoinj issue of adding duplicate
         // inputs because there should be no need to add inputs in this case.
-      for (TransactionOutput in : inputs.gathered) {
-        tx.addInput(in);
-      }
+        // Disabled for now because bitcoinj fails at calculating the fee this way.
+        //for (TransactionOutput in : inputs.gathered) {
+        //tx.addInput(in);
+        //}
       Coin extraChangeAmount = change.divide(extraChange + 1);
       for (int i=0;i<extraChange;i++) {
         tx.addOutput(extraChangeAmount,kit.wallet().freshAddress(KeyChain.KeyPurpose.CHANGE));
