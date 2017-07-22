@@ -138,15 +138,14 @@ sendtoaddress "bitcoinaddress" amount
 sendmany "ignored" {"address":amount,...}
 sendfrom "ignored" "bitcoinaddress" amount
 validateaddress "bitcoinaddress"
+getrawtransaction "txid"
+settxfee feeperkb
+estimatefee target
 listunspent (minconf maxconf ["address",...])
 signmessage "bitcoinaddress" "message"
 verifymessage "bitcoinaddress" "signature" "message"
 getreceivedbyaddress "bitcoinaddress" ( minconf )
-```
-
-## TODO Bitcoind RPC calls
-These RPC calls are on my list of things to implement when I've got the time or I actually need them.
-```
+dumpprivkey "bitcoinaddress"
 listtransactions
 listsinceblock
 ```

@@ -27,11 +27,9 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.security.SignatureException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -146,7 +144,9 @@ public class WalletRPC extends Thread implements RequestHandler {
       "getreceivedbyaddress",
       "signmessage",
       "verifymessage",
-      "dumpprivkey"
+      "dumpprivkey",
+      "listtransactions",
+      "listsinceblock"
     };
   }
     
@@ -458,6 +458,150 @@ public class WalletRPC extends Thread implements RequestHandler {
     return reply;
   }
 
+    private void tx2JSON(Transaction tx, JSONArray output) {
+          List<TransactionOutput> txouts = tx.getOutputs();
+          String error = null;
+          long txTimestamp = tx.getUpdateTime().getTime() / 1000;
+          int depth = tx.getConfidence().getDepthInBlocks();
+          Sha256Hash blockhash = null;
+          long blockTimestamp = 0;
+          if (depth > 0) {
+              BigInteger bestwork = BigInteger.ZERO;
+              StoredBlock bestblock = null;
+              Map<Sha256Hash,Integer> blockhashes = tx.getAppearsInHashes();
+              if (blockhashes.size() == 1)
+                blockhash = blockhashes.entrySet().iterator().next().getKey();
+              else for (Map.Entry<Sha256Hash,Integer> entry : blockhashes.entrySet()) {
+                  // Really, bitcoinj should have an utility function to do this.
+                  try {
+                    StoredBlock block = kit.store().get(entry.getKey());
+                    BigInteger work = block.getChainWork();
+                    if (bestwork.compareTo(work) < 0) {
+                      bestblock = block;
+                      bestwork = work;
+                      blockhash = entry.getKey();
+                    }
+                  } catch (org.bitcoinj.store.BlockStoreException e) {
+                  // just ignore blocks that don't exist. This shouldn't happen anyway.
+                    error = "If you see this error, please file a bug report. Got BlockStoreException.";
+                  } catch (NullPointerException e) {
+                      error = "multiple blockhashes and no data about them. " +
+                              "Consider resynchronizing the wallet to get blockhash data on this transaction.";
+                  }
+              }
+              if (bestblock != null) 
+                  blockTimestamp = bestblock.getHeader().getTimeSeconds();
+              else blockTimestamp = txTimestamp;
+          }
+          Coin myInputValue = tx.getValueSentFromMe(kit.wallet());
+          if (myInputValue.isGreaterThan(Coin.ZERO)) {
+              // This transaction spends coins from our wallet
+              if (myInputValue.equals(tx.getInputSum())) {
+                  // And all txins are from our wallet, so list the indivdual outputs
+                  // outside the wallet as negative amounts.
+                  for (TransactionOutput txout : txouts) {
+                      String addr = txoutScript2String(params,txout);
+                      if (!txout.isMine(kit.wallet())) {
+                          JSONObject jsontx = new JSONObject();
+                          jsontx.put("category","send");
+                          jsontx.put("txid", tx.getHash().toString());
+                          jsontx.put("fee", coin2BigDecimal(tx.getFee().negate()));
+                          jsontx.put("vout",txout.getOutPointFor().getIndex());
+                          jsontx.put("address",addr);
+                          jsontx.put("amount", coin2BigDecimal(txout.getValue().negate()));
+                          jsontx.put("confirmations",depth);
+                          jsontx.put("time",txTimestamp);
+                          jsontx.put("timereceived",txTimestamp);
+                          if (blockhash != null) {
+                              jsontx.put("blockhash",blockhash.toString());
+                              jsontx.put("blocktime",blockTimestamp);
+                          }
+                          if (error != null) jsontx.put("error",error);
+                          output.add(jsontx);
+                      }
+                  }
+              } else { // and some txins are not from our wallet
+                  // We'll treat this specially and only list one output matching
+                  // The change to our wallet balance because we don't know how to
+                  // interpret the details.
+                  JSONObject jsontx = new JSONObject();
+                  jsontx.put("category","unknown");
+                  jsontx.put("txid", tx.getHash().toString());
+                  jsontx.put("fee", coin2BigDecimal(tx.getFee()));
+                  jsontx.put("vout",0);
+                  jsontx.put("address","omitted");
+                  jsontx.put("amount", coin2BigDecimal(tx.getValue(kit.wallet())));
+                  jsontx.put("confirmations",depth);
+                  jsontx.put("time",txTimestamp);
+                  jsontx.put("timereceived",txTimestamp);
+                  if (blockhash != null) {
+                      jsontx.put("blockhash",blockhash.toString());
+                      jsontx.put("blocktime",blockTimestamp);
+                  }
+                  if (error != null) jsontx.put("error",error);
+                  output.add(jsontx);
+              }
+          } else { // None of the txins are from our wallet
+              for (TransactionOutput txout : txouts) {
+                  String addr = txoutScript2String(params,txout);
+                  if (txout.isMine(kit.wallet())) {
+                      JSONObject jsontx = new JSONObject();
+                      jsontx.put("category","receive");
+                      jsontx.put("txid", tx.getHash().toString());
+                      jsontx.put("fee", 0);
+                      jsontx.put("vout",txout.getOutPointFor().getIndex());
+                      jsontx.put("address",addr);
+                      jsontx.put("amount", coin2BigDecimal(txout.getValue()));
+                      jsontx.put("confirmations",depth);
+                      jsontx.put("time",txTimestamp);
+                      jsontx.put("timereceived",txTimestamp);
+                      if (blockhash != null) {
+                          jsontx.put("blockhash",blockhash.toString());
+                          jsontx.put("blocktime",blockTimestamp);
+                      }
+                      if (error != null) jsontx.put("error",error);
+                      output.add(jsontx);
+                  }
+              }
+          }
+    }
+
+  private Object listtransactions(String account, int count, int from) {
+      JSONArray reply = new JSONArray();
+      List<Transaction> transactions = kit.wallet().getRecentTransactions(count+from,false);
+      for (ListIterator<Transaction> iterator = transactions.listIterator(transactions.size()); iterator.hasPrevious();) {
+          Transaction tx = iterator.previous();
+          tx2JSON(tx, reply);
+      }
+      
+      return reply.subList(reply.size() - from - count, reply.size() - from);
+  }
+
+  private Object listsinceblock(String blockhash, int target_confirms) throws BlockStoreException {
+    JSONObject reply = new JSONObject();
+    int height = 0;
+    if (blockhash != null)
+      height = kit.store().get(Sha256Hash.wrap(blockhash)).getHeight();
+    int depth = 1 + kit.chain().getBestChainHeight() - height;
+    List<Transaction> transactions = kit.wallet().getTransactionsByTime();
+
+    JSONArray replyTransactions = new JSONArray();
+    reply.put("transactions",replyTransactions);
+
+    for (ListIterator<Transaction> iterator = transactions.listIterator(transactions.size()); iterator.hasPrevious();) {
+      Transaction tx = iterator.previous();
+      int txDepth = tx.getConfidence().getDepthInBlocks();
+      if (txDepth < depth) tx2JSON(tx, replyTransactions);
+      else break;
+    }
+    StoredBlock lastblock = kit.chain().getChainHead();
+    for (int i=1;i<target_confirms;i++) {
+      lastblock = lastblock.getPrev(kit.store());
+    }
+    reply.put("lastblock",lastblock.getHeader().getHashAsString());
+    return reply;
+  }
+
   private boolean settxfee(String fee) {
     paytxfee = Coin.parseCoin(fee);
     return true;
@@ -534,6 +678,37 @@ public class WalletRPC extends Thread implements RequestHandler {
           break;
         case "settxfee":
           response = settxfee(rp.get(0).toString());
+          break;
+        case "listtransactions":
+            int count = 10;
+            int from = 0;
+            switch (rp.size()) {
+            case 3:
+                from = (int)rp.get(2);
+            case 2:
+                count = (int)rp.get(1);
+            case 1:
+            case 0:
+            default:
+                break;
+            }
+            response = listtransactions("",count,from);
+            break;
+        case "listsinceblock":
+          int target = 1;
+          String blockhash = null;
+          switch (rp.size()) {
+            case 3:
+              // FIXME: Maybe add support for the watch-only parameter someday
+            case 2:
+              target = (int)rp.get(1);
+            case 1:
+              blockhash = (String)rp.get(0);
+            case 0:
+            default:
+              break;
+          }
+          response = listsinceblock(blockhash, target);
           break;
         case "listunspent":
           long minconf = 1;
