@@ -28,6 +28,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.SignatureException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -67,13 +69,14 @@ public class WalletRPC extends Thread implements RequestHandler {
     catch (FileNotFoundException e) {
       log.info(filePrefix + ": config file "+filePrefix+".conf not found. Using defaults.");
     }
-    config.defaultString("paytxfee","0.00120011");
+    config.defaultString("paytxfee","0.00180011");
     this.paytxfee = Coin.parseCoin(config.getString("paytxfee"));
     config.defaultBoolean("start",true);
     config.defaultBoolean("sendUnconfirmedChange",true);
     config.defaultInteger("targetCoinCount",8);
     config.defaultBigDecimal("targetCoinAmount", new BigDecimal("0.5"));
     config.defaultString("hostName","localhost");
+    config.defaultString("trustedPeer","");
     config.defaultInteger("port",port);
 
     // Note, tor support seems to be very unstable - not recommended
@@ -91,7 +94,6 @@ public class WalletRPC extends Thread implements RequestHandler {
     this.hostName = config.getString("hostName");
     this.port = config.getInteger("port");
 
-    //defaults.setProperty("trustedPeer","1.2.3.4");
   }
 
   public void run() {
@@ -111,6 +113,22 @@ public class WalletRPC extends Thread implements RequestHandler {
       if (config.getBoolean("useTor"))
       {
         kit.useTor();
+      }
+
+      if (config.getString("trustedPeer") != "") {
+        try {
+          URI uri = new URI("my://" + config.getString("trustedPeer"));
+
+          if (uri.getHost() == null || uri.getPort() == -1) {
+            throw new Exception("Invalid host:port pair");
+          }
+          PeerAddress trusted = new PeerAddress(params,uri.getHost(),uri.getPort());
+          kit.setPeerNodes(trusted);
+          log.info("Connecting only to " + trusted.toString() + " as the trusted Peer.");
+
+        } catch (Exception e) {
+          log.warn("Invalid syntax for trustedPeer");
+        }
       }
 
       kit.startAsync();
