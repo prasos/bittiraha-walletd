@@ -6,7 +6,8 @@
 
     <target name="compile">
         <mkdir dir="build/classes"/>
-        <javac srcdir="src" destdir="build/classes" classpathref="classpath">
+        <javac srcdir="src" destdir="build/classes" classpathref="classpath"
+               debug="true" debuglevel="lines,vars,source">
           <compilerarg value="-Xlint:unchecked"/>
         </javac>
     </target>
@@ -21,6 +22,15 @@
         <jar destfile="build/jar/Walletd.jar" basedir="build/classes">
             <manifest>
                 <attribute name="Main-Class" value="fi.bittiraha.walletd.Main"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="historyjar">
+        <mkdir dir="build/jar"/>
+        <jar destfile="build/jar/History.jar" basedir="build/classes">
+            <manifest>
+                <attribute name="Main-Class" value="fi.bittiraha.walletd.History"/>
             </manifest>
         </jar>
     </target>

@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.InetAddress;
 import java.security.SignatureException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -122,7 +123,9 @@ public class WalletRPC extends Thread implements RequestHandler {
           if (uri.getHost() == null || uri.getPort() == -1) {
             throw new Exception("Invalid host:port pair");
           }
-          PeerAddress trusted = new PeerAddress(params,uri.getHost(),uri.getPort());
+          PeerAddress trusted = new PeerAddress(params,InetAddress.getByName(uri.getHost()),uri.getPort());
+          log.info("Host: " + uri.getHost() + " Port: " + uri.getPort());
+
           kit.setPeerNodes(trusted);
           log.info("Connecting only to " + trusted.toString() + " as the trusted Peer.");
 
