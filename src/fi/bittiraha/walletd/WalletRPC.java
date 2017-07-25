@@ -587,15 +587,15 @@ public class WalletRPC extends Thread implements RequestHandler {
           }
     }
 
-  private Object listtransactions(String account, int count, int from) {
+  private Object listtransactions(String account, long count, long from) {
       JSONArray reply = new JSONArray();
-      List<Transaction> transactions = kit.wallet().getRecentTransactions(count+from,false);
+      List<Transaction> transactions = kit.wallet().getRecentTransactions((int)(count+from),false);
       for (ListIterator<Transaction> iterator = transactions.listIterator(transactions.size()); iterator.hasPrevious();) {
           Transaction tx = iterator.previous();
           tx2JSON(tx, reply);
       }
       
-      return reply.subList(reply.size() - from - count, reply.size() - from);
+      return reply.subList((int)(reply.size() - from - count), (int)(reply.size() - from));
   }
 
   private Object listsinceblock(String blockhash, int target_confirms) throws BlockStoreException {
@@ -701,13 +701,13 @@ public class WalletRPC extends Thread implements RequestHandler {
           response = settxfee(rp.get(0).toString());
           break;
         case "listtransactions":
-            int count = 10;
-            int from = 0;
+            long count = 10;
+            long from = 0;
             switch (rp.size()) {
             case 3:
-                from = (int)rp.get(2);
+                from = (long)rp.get(2);
             case 2:
-                count = (int)rp.get(1);
+                count = (long)rp.get(1);
             case 1:
             case 0:
             default:
