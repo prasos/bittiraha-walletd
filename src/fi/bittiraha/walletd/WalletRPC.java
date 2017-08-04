@@ -598,7 +598,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       return reply.subList((int)(reply.size() - from - count), (int)(reply.size() - from));
   }
 
-  private Object listsinceblock(String blockhash, int target_confirms) throws BlockStoreException {
+  private Object listsinceblock(String blockhash, long target_confirms) throws BlockStoreException {
     JSONObject reply = new JSONObject();
     int height = 0;
     if (blockhash != null)
@@ -616,7 +616,7 @@ public class WalletRPC extends Thread implements RequestHandler {
       else break;
     }
     StoredBlock lastblock = kit.chain().getChainHead();
-    for (int i=1;i<target_confirms;i++) {
+    for (long i=1;i<target_confirms;i++) {
       lastblock = lastblock.getPrev(kit.store());
     }
     reply.put("lastblock",lastblock.getHeader().getHashAsString());
@@ -716,13 +716,13 @@ public class WalletRPC extends Thread implements RequestHandler {
             response = listtransactions("",count,from);
             break;
         case "listsinceblock":
-          int target = 1;
+          long target = 1;
           String blockhash = null;
           switch (rp.size()) {
             case 3:
               // FIXME: Maybe add support for the watch-only parameter someday
             case 2:
-              target = (int)rp.get(1);
+              target = (long)rp.get(1);
             case 1:
               blockhash = (String)rp.get(0);
             case 0:
