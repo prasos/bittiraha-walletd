@@ -601,7 +601,7 @@ public class WalletRPC extends Thread implements RequestHandler {
   private Object listsinceblock(String blockhash, long target_confirms) throws BlockStoreException {
     JSONObject reply = new JSONObject();
     int height = 0;
-    if (blockhash != null) {
+    if (blockhash != null && blockhash.length() > 0) {
         StoredBlock block = kit.store().get(Sha256Hash.wrap(blockhash));
         if (block != null) height = block.getHeight();
     }
