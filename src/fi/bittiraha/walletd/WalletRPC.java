@@ -604,8 +604,10 @@ public class WalletRPC extends Thread implements RequestHandler {
     if (blockhash != null && blockhash.length() > 0) {
         StoredBlock block = kit.store().get(Sha256Hash.wrap(blockhash));
         if (block != null) height = block.getHeight();
-    }
+    } else { blockhash = ""; }
     int depth = 1 + kit.chain().getBestChainHeight() - height;
+    log.info("Producing a list of transactions less deep than " +
+             depth + ".");
     List<Transaction> transactions = kit.wallet().getTransactionsByTime();
 
     JSONArray replyTransactions = new JSONArray();
